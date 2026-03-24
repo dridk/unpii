@@ -1,5 +1,4 @@
 use candle_core::{Device, Tensor};
-use candle_nn::ops::softmax;
 use candle_nn::VarBuilder;
 use candle_transformers::models::debertav2::{
     Config as DebertaV2Config, DebertaV2NERModel, Id2Label,
@@ -17,7 +16,9 @@ use pii::{
     recognizers::ner::NerRecognizer,
     types::{EntityType, Language, NerSpan},
 };
+use rayon::prelude::*;
 use regex::Regex;
+use std::sync::{Arc, LazyLock};
 use tokenizers::{PaddingParams, Tokenizer};
 
 use std::io::Read;
@@ -34,13 +35,12 @@ struct Cli {
     /// Préfixe des fichiers de sortie (ex: "ano" → ano.fichier.txt)
     #[arg(long, default_value = "ano")]
     prefix: String,
-
 }
 
 // ── Modèle CamemBERT v2 NER ────────────────────────────────────────────────
 
 struct CamembertNerModel {
-    name: String,
+    name: Arc<str>,
     model: DebertaV2NERModel,
     tokenizer: Tokenizer,
     id2label: Id2Label,
@@ -86,7 +86,7 @@ impl CamembertNerModel {
             .map_err(|e| PiiError::NlpEngine(e.to_string()))?;
 
         eprintln!("Modèle chargé !");
-        Ok(Self { name: model_id.to_string(), model, tokenizer, id2label, device })
+        Ok(Self { name: Arc::from(model_id), model, tokenizer, id2label, device })
     }
 }
 
@@ -120,8 +120,9 @@ impl CandleNerModel for CamembertNerModel {
             .forward(&input_ids, Some(token_type_ids), Some(attention_mask))
             .map_err(|e| PiiError::NlpEngine(e.to_string()))?;
 
-        let probs = softmax(&logits, 2).map_err(|e| PiiError::NlpEngine(e.to_string()))?;
-        let max_scores = probs.max(2).map_err(|e| PiiError::NlpEngine(e.to_string()))?.to_vec2::<f32>().map_err(|e| PiiError::NlpEngine(e.to_string()))?;
+        // Pas besoin de softmax : argmax(logits) == argmax(softmax(logits))
+        // On utilise les logits bruts comme scores (l'ordre est préservé).
+        let max_scores = logits.max(2).map_err(|e| PiiError::NlpEngine(e.to_string()))?.to_vec2::<f32>().map_err(|e| PiiError::NlpEngine(e.to_string()))?;
         let max_indices: Vec<Vec<u32>> = logits.argmax(2).map_err(|e| PiiError::NlpEngine(e.to_string()))?.to_vec2().map_err(|e| PiiError::NlpEngine(e.to_string()))?;
 
         let special_mask = encoding.get_special_tokens_mask();
@@ -170,7 +171,7 @@ impl CandleNerModel for CamembertNerModel {
                     if let Some(span) = current.take() {
                         spans.push(span);
                     }
-                    current = Some(NerSpan { entity_type, start, end, score, model: self.name.clone() });
+                    current = Some(NerSpan { entity_type, start, end, score, model: self.name.to_string() });
                 }
             }
         }
@@ -202,12 +203,13 @@ fn label_to_entity(label: &str) -> Option<EntityType> {
 
 // ── Post-traitement emails ──────────────────────────────────────────────────
 
+static PARTIAL_EMAIL_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"\S*<REDACTED>\S*@\S+|\S+@\S*<REDACTED>\S*").unwrap()
+});
+
 /// Corrige les emails partiellement anonymisés (ex: sacha@<REDACTED>.fr → <REDACTED>).
-/// Le NER peut détecter un nom/org à l'intérieur d'une adresse email, ce qui
-/// provoque une anonymisation partielle. On rattrape ça en post-traitement.
 fn fix_partial_emails(text: &str) -> String {
-    let re = Regex::new(r"\S*<REDACTED>\S*@\S+|\S+@\S*<REDACTED>\S*").unwrap();
-    re.replace_all(text, "<REDACTED>").to_string()
+    PARTIAL_EMAIL_RE.replace_all(text, "<REDACTED>").to_string()
 }
 
 // ── Anonymisation ───────────────────────────────────────────────────────────
@@ -247,24 +249,50 @@ fn main() -> PiiResult<()> {
         let output = anonymize_text(&analyzer, &lang, &anon_config, &input)?;
         print!("{output}");
     } else {
-        // Mode fichier(s)
+        // Mode fichier(s) — traitement parallèle
         let total = cli.files.len();
-        for (i, path) in cli.files.iter().enumerate() {
+        let t_global = std::time::Instant::now();
+
+        // Lire tous les fichiers d'abord (I/O séquentiel)
+        let inputs: Vec<(usize, &PathBuf, String)> = cli
+            .files
+            .iter()
+            .enumerate()
+            .map(|(i, path)| {
+                let content = std::fs::read_to_string(path)
+                    .map_err(|e| PiiError::NlpEngine(format!("{}: {e}", path.display())))?;
+                Ok((i, path, content))
+            })
+            .collect::<PiiResult<Vec<_>>>()?;
+
+        // Anonymiser en parallèle
+        let results: Vec<PiiResult<(usize, &PathBuf, String, std::time::Duration)>> = inputs
+            .par_iter()
+            .map(|(i, path, content)| {
+                let t = std::time::Instant::now();
+                let output = anonymize_text(&analyzer, &lang, &anon_config, content)?;
+                Ok((*i, *path, output, t.elapsed()))
+            })
+            .collect();
+
+        // Écrire les résultats
+        for result in results {
+            let (i, path, output, elapsed) = result?;
             let filename = path.file_name().unwrap_or(path.as_os_str());
             let parent = path.parent().unwrap_or(std::path::Path::new("."));
             let out_path = parent.join(format!("{}.{}", cli.prefix, filename.to_string_lossy()));
 
-            eprintln!("[{}/{}] {} → {}", i + 1, total, path.display(), out_path.display());
-
-            let input = std::fs::read_to_string(path).map_err(|e| PiiError::NlpEngine(format!("{}: {e}", path.display())))?;
-            let t = std::time::Instant::now();
-            let output = anonymize_text(&analyzer, &lang, &anon_config, &input)?;
-            let elapsed = t.elapsed();
-
-            std::fs::write(&out_path, &output).map_err(|e| PiiError::NlpEngine(format!("{}: {e}", out_path.display())))?;
-            eprintln!("  → OK ({:.1}ms)", elapsed.as_secs_f64() * 1000.0);
+            std::fs::write(&out_path, &output)
+                .map_err(|e| PiiError::NlpEngine(format!("{}: {e}", out_path.display())))?;
+            eprintln!("[{}/{}] {} → {} ({:.1}ms)", i + 1, total, path.display(), out_path.display(), elapsed.as_secs_f64() * 1000.0);
         }
-        eprintln!("{total} fichier(s) anonymisé(s).");
+
+        let total_elapsed = t_global.elapsed();
+        eprintln!(
+            "{total} fichier(s) anonymisé(s) en {:.1}s ({:.1}ms/doc)",
+            total_elapsed.as_secs_f64(),
+            total_elapsed.as_secs_f64() * 1000.0 / total as f64
+        );
     }
 
     Ok(())

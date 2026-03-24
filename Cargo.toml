@@ -10,6 +10,7 @@ candle-transformers = "0.9.2-alpha.2"
 clap = { version = "4", features = ["derive"] }
 hf-hub = "0.4.3"
 pii = { version = "0.1.0", features = ["candle-ner"] }
+rayon = "1"
 regex = "1"
 serde_json = "1.0.149"
 tokenizers = "0.15.2"
