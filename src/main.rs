@@ -29,7 +29,7 @@ struct CamembertNerModel {
 }
 
 impl CamembertNerModel {
-    fn load(model_id: &str) -> PiiResult<Self> {
+    fn load(model_id: &str, use_gpu: bool) -> PiiResult<Self> {
         eprintln!("Téléchargement du modèle {model_id}...");
         let repo = Repo::with_revision(model_id.to_string(), RepoType::Model, "main".to_string());
         let api = Api::new().map_err(|e| PiiError::NlpEngine(e.to_string()))?;
@@ -53,7 +53,11 @@ impl CamembertNerModel {
             Tokenizer::from_file(&tokenizer_path).map_err(|e| PiiError::NlpEngine(e.to_string()))?;
         tokenizer.with_padding(Some(PaddingParams::default()));
 
-        let device = Device::cuda_if_available(0).map_err(|e| PiiError::NlpEngine(e.to_string()))?;
+        let device = if use_gpu {
+            Device::cuda_if_available(0).map_err(|e| PiiError::NlpEngine(e.to_string()))?
+        } else {
+            Device::Cpu
+        };
         let device_name = if device.is_cuda() { "GPU (CUDA)" } else { "CPU" };
         eprintln!("Device : {device_name}");
 
@@ -187,13 +191,30 @@ fn label_to_entity(label: &str) -> Option<EntityType> {
 
 fn main() -> PiiResult<()> {
     let args: Vec<String> = std::env::args().collect();
-    if args.len() < 2 {
-        eprintln!("Usage: {} \"texte à anonymiser\"", args[0]);
-        std::process::exit(1);
-    }
-    let text = &args[1];
 
-    let ner_model = CamembertNerModel::load("almanach/camembertav2-base-ftb-ner")?;
+    let mut use_gpu = true;
+    let mut text_arg: Option<&str> = None;
+
+    let mut i = 1;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--cpu" => use_gpu = false,
+            "--gpu" => use_gpu = true,
+            _ if text_arg.is_none() => text_arg = Some(&args[i]),
+            _ => {}
+        }
+        i += 1;
+    }
+
+    let text = match text_arg {
+        Some(t) => t,
+        None => {
+            eprintln!("Usage: {} [--cpu|--gpu] \"texte à anonymiser\"", args[0]);
+            std::process::exit(1);
+        }
+    };
+
+    let ner_model = CamembertNerModel::load("almanach/camembertav2-base-ftb-ner", use_gpu)?;
     let base_engine = Box::new(SimpleNlpEngine::new(true));
     let ner_engine = CandleNerEngine::new(base_engine, Box::new(ner_model))?;
 
