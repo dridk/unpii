@@ -43,6 +43,43 @@ unpii.mask("DUPONT Jean est ici", mode="paranoid")
 # → "<NOM> est ici"
 ```
 
+## Extra Blacklist
+
+Pass additional words to mask per call. Useful when you know the patient's name:
+
+```python
+unpii.mask("bob dylan est ici", extra=["bob", "dylan"])
+# → "<EXTRA> <EXTRA> est ici"
+```
+
+Case-insensitive with word boundary checks:
+
+```python
+unpii.mask("Bonjour Bob", extra=["bob"])
+# → "Bonjour <EXTRA>"
+```
+
+With Polars, pass columns as extra blacklist — values are matched per row:
+
+```python
+df = pl.DataFrame({
+    "text": ["bob est ici", "alice va bien"],
+    "nom": ["bob", "alice"],
+})
+df.with_columns(pl.col("text").unpii.mask(pl.col("nom")))
+# ┌─────────────────┬───────┐
+# │ text            ┆ nom   │
+# ╞═════════════════╪═══════╡
+# │ <EXTRA> est ici ┆ bob   │
+# │ <EXTRA> va bien ┆ alice │
+# └─────────────────┴───────┘
+
+# Multiple columns
+df.with_columns(
+    pl.col("text").unpii.mask(pl.col("nom"), pl.col("prenom"))
+)
+```
+
 ## Ignore Groups
 
 Skip specific categories:
