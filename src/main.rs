@@ -189,6 +189,27 @@ fn label_to_entity(label: &str) -> Option<EntityType> {
 
 // ── CLI ─────────────────────────────────────────────────────────────────────
 
+fn anonymize_and_print(
+    analyzer: &Analyzer,
+    lang: &Language,
+    anon_config: &AnonymizeConfig,
+    buffer: &str,
+) {
+    let text = buffer.trim();
+    let t = std::time::Instant::now();
+    match analyzer.analyze(text, lang) {
+        Ok(result) => match Anonymizer::anonymize(text, &result.entities, anon_config) {
+            Ok(anonymized) => {
+                let elapsed = t.elapsed();
+                println!("{}", anonymized.text);
+                eprintln!("({:.1}ms)", elapsed.as_secs_f64() * 1000.0);
+            }
+            Err(e) => eprintln!("Erreur d'anonymisation : {e}"),
+        },
+        Err(e) => eprintln!("Erreur d'analyse : {e}"),
+    }
+}
+
 fn main() -> PiiResult<()> {
     let args: Vec<String> = std::env::args().collect();
 
@@ -213,15 +234,22 @@ fn main() -> PiiResult<()> {
     let lang = Language::new("fr");
     let anon_config = AnonymizeConfig::default();
 
-    eprintln!("\nEntrez un texte à anonymiser (Ctrl+C pour quitter) :");
+    eprintln!("\nCollez ou tapez un texte (ligne vide pour lancer, Ctrl+C pour quitter) :");
     let stdin = std::io::stdin();
     let mut line = String::new();
+    let mut buffer = String::new();
 
     loop {
         eprint!("> ");
         line.clear();
         match stdin.read_line(&mut line) {
-            Ok(0) => break, // EOF
+            Ok(0) => {
+                // EOF : traiter le buffer restant
+                if !buffer.trim().is_empty() {
+                    anonymize_and_print(&analyzer, &lang, &anon_config, &buffer);
+                }
+                break;
+            }
             Ok(_) => {}
             Err(e) => {
                 eprintln!("Erreur de lecture : {e}");
@@ -229,22 +257,15 @@ fn main() -> PiiResult<()> {
             }
         }
 
-        let text = line.trim();
-        if text.is_empty() {
-            continue;
-        }
-
-        let t = std::time::Instant::now();
-        match analyzer.analyze(text, &lang) {
-            Ok(result) => match Anonymizer::anonymize(text, &result.entities, &anon_config) {
-                Ok(anonymized) => {
-                    let elapsed = t.elapsed();
-                    println!("{}", anonymized.text);
-                    eprintln!("({:.1}ms)", elapsed.as_secs_f64() * 1000.0);
-                }
-                Err(e) => eprintln!("Erreur d'anonymisation : {e}"),
-            },
-            Err(e) => eprintln!("Erreur d'analyse : {e}"),
+        if line.trim().is_empty() {
+            // Ligne vide = validation du bloc
+            let text = buffer.trim();
+            if !text.is_empty() {
+                anonymize_and_print(&analyzer, &lang, &anon_config, &buffer);
+            }
+            buffer.clear();
+        } else {
+            buffer.push_str(&line);
         }
     }
 
