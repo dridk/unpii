@@ -1,0 +1,16 @@
+[package]
+name = "unpii-polars"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "unpii"
+crate-type = ["cdylib"]
+
+[dependencies]
+unpii-core = { path = "../unpii-core" }
+pyo3 = { version = "0.23", features = ["extension-module", "abi3-py310"] }
+pyo3-polars = { version = "0.20", features = ["derive"] }
+polars = { version = "0.46", default-features = false }
+polars-arrow = { version = "0.46" }
+serde = { version = "1", features = ["derive"] }

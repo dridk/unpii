@@ -1,0 +1,3 @@
+[workspace]
+members = ["crates/unpii-core", "crates/unpii-polars"]
+resolver = "2"
