@@ -234,38 +234,56 @@ fn main() -> PiiResult<()> {
     let lang = Language::new("fr");
     let anon_config = AnonymizeConfig::default();
 
-    eprintln!("\nCollez ou tapez un texte (ligne vide pour lancer, Ctrl+C pour quitter) :");
-    let stdin = std::io::stdin();
-    let mut line = String::new();
+    eprintln!("\nCollez ou tapez un texte (Ctrl+C pour quitter) :");
+    eprintln!("L'anonymisation se lance automatiquement après une pause.\n");
+
+    let (tx, rx) = std::sync::mpsc::channel::<Option<String>>();
+
+    // Thread de lecture stdin
+    std::thread::spawn(move || {
+        let stdin = std::io::stdin();
+        let mut line = String::new();
+        loop {
+            line.clear();
+            match stdin.read_line(&mut line) {
+                Ok(0) => { let _ = tx.send(None); break; }
+                Ok(_) => { let _ = tx.send(Some(line.clone())); }
+                Err(_) => { let _ = tx.send(None); break; }
+            }
+        }
+    });
+
+    let timeout = std::time::Duration::from_millis(200);
     let mut buffer = String::new();
 
     loop {
-        eprint!("> ");
-        line.clear();
-        match stdin.read_line(&mut line) {
-            Ok(0) => {
-                // EOF : traiter le buffer restant
+        match rx.recv() {
+            Ok(Some(line)) => {
+                if buffer.is_empty() {
+                    eprint!("> ");
+                }
+                buffer.push_str(&line);
+                // Drainer les lignes qui arrivent rapidement (collage)
+                loop {
+                    match rx.recv_timeout(timeout) {
+                        Ok(Some(line)) => buffer.push_str(&line),
+                        Ok(None) => {
+                            // EOF : traiter le reste et quitter
+                            if !buffer.trim().is_empty() {
+                                anonymize_and_print(&analyzer, &lang, &anon_config, &buffer);
+                            }
+                            return Ok(());
+                        }
+                        Err(_) => break, // Timeout = fin du collage
+                    }
+                }
+                // Timeout atteint : lancer l'anonymisation
                 if !buffer.trim().is_empty() {
                     anonymize_and_print(&analyzer, &lang, &anon_config, &buffer);
                 }
-                break;
+                buffer.clear();
             }
-            Ok(_) => {}
-            Err(e) => {
-                eprintln!("Erreur de lecture : {e}");
-                break;
-            }
-        }
-
-        if line.trim().is_empty() {
-            // Ligne vide = validation du bloc
-            let text = buffer.trim();
-            if !text.is_empty() {
-                anonymize_and_print(&analyzer, &lang, &anon_config, &buffer);
-            }
-            buffer.clear();
-        } else {
-            buffer.push_str(&line);
+            Ok(None) | Err(_) => break,
         }
     }
 
