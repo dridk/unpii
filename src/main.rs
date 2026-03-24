@@ -4,6 +4,7 @@ use candle_nn::VarBuilder;
 use candle_transformers::models::debertav2::{
     Config as DebertaV2Config, DebertaV2NERModel, Id2Label,
 };
+use clap::Parser;
 use hf_hub::{api::sync::Api, Repo, RepoType};
 use pii::{
     analyzer::Analyzer,
@@ -16,7 +17,32 @@ use pii::{
     recognizers::ner::NerRecognizer,
     types::{EntityType, Language, NerSpan},
 };
+use regex::Regex;
 use tokenizers::{PaddingParams, Tokenizer};
+
+use std::io::Read;
+use std::path::PathBuf;
+
+// ── CLI ─────────────────────────────────────────────────────────────────────
+
+#[derive(Parser)]
+#[command(name = "unpii", about = "Anonymise des fichiers texte (PII/NER)")]
+struct Cli {
+    /// Fichiers à anonymiser. Si absent, lit stdin.
+    files: Vec<PathBuf>,
+
+    /// Préfixe des fichiers de sortie (ex: "ano" → ano.fichier.txt)
+    #[arg(long, default_value = "ano")]
+    prefix: String,
+
+    /// Utiliser le GPU (CUDA)
+    #[arg(long)]
+    gpu: bool,
+
+    /// Forcer le CPU
+    #[arg(long)]
+    cpu: bool,
+}
 
 // ── Modèle CamemBERT v2 NER ────────────────────────────────────────────────
 
@@ -187,32 +213,35 @@ fn label_to_entity(label: &str) -> Option<EntityType> {
     }
 }
 
-// ── CLI ─────────────────────────────────────────────────────────────────────
+// ── Post-traitement emails ──────────────────────────────────────────────────
+
+/// Corrige les emails partiellement anonymisés (ex: sacha@<REDACTED>.fr → <REDACTED>).
+/// Le NER peut détecter un nom/org à l'intérieur d'une adresse email, ce qui
+/// provoque une anonymisation partielle. On rattrape ça en post-traitement.
+fn fix_partial_emails(text: &str) -> String {
+    let re = Regex::new(r"\S*<REDACTED>\S*@\S+|\S+@\S*<REDACTED>\S*").unwrap();
+    re.replace_all(text, "<REDACTED>").to_string()
+}
+
+// ── Anonymisation ───────────────────────────────────────────────────────────
+
+fn anonymize_text(
+    analyzer: &Analyzer,
+    lang: &Language,
+    anon_config: &AnonymizeConfig,
+    text: &str,
+) -> PiiResult<String> {
+    let result = analyzer.analyze(text, lang)?;
+    let anonymized = Anonymizer::anonymize(text, &result.entities, anon_config)?;
+    Ok(fix_partial_emails(&anonymized.text))
+}
+
+// ── Main ────────────────────────────────────────────────────────────────────
 
 fn main() -> PiiResult<()> {
-    let args: Vec<String> = std::env::args().collect();
+    let cli = Cli::parse();
 
-    let mut use_gpu = true;
-    let mut text_arg: Option<&str> = None;
-
-    let mut i = 1;
-    while i < args.len() {
-        match args[i].as_str() {
-            "--cpu" => use_gpu = false,
-            "--gpu" => use_gpu = true,
-            _ if text_arg.is_none() => text_arg = Some(&args[i]),
-            _ => {}
-        }
-        i += 1;
-    }
-
-    let text = match text_arg {
-        Some(t) => t,
-        None => {
-            eprintln!("Usage: {} [--cpu|--gpu] \"texte à anonymiser\"", args[0]);
-            std::process::exit(1);
-        }
-    };
+    let use_gpu = if cli.cpu { false } else { cli.gpu };
 
     let ner_model = CamembertNerModel::load("almanach/camembertav2-base-ftb-ner", use_gpu)?;
     let base_engine = Box::new(SimpleNlpEngine::new(true));
@@ -226,10 +255,32 @@ fn main() -> PiiResult<()> {
     let lang = Language::new("fr");
     let anon_config = AnonymizeConfig::default();
 
-    let result = analyzer.analyze(text, &lang)?;
-    let anonymized = Anonymizer::anonymize(text, &result.entities, &anon_config)?;
+    if cli.files.is_empty() {
+        // Mode stdin → stdout
+        let mut input = String::new();
+        std::io::stdin().read_to_string(&mut input).map_err(|e| PiiError::NlpEngine(e.to_string()))?;
+        let output = anonymize_text(&analyzer, &lang, &anon_config, &input)?;
+        print!("{output}");
+    } else {
+        // Mode fichier(s)
+        let total = cli.files.len();
+        for (i, path) in cli.files.iter().enumerate() {
+            let filename = path.file_name().unwrap_or(path.as_os_str());
+            let parent = path.parent().unwrap_or(std::path::Path::new("."));
+            let out_path = parent.join(format!("{}.{}", cli.prefix, filename.to_string_lossy()));
 
-    println!("{}", anonymized.text);
+            eprintln!("[{}/{}] {} → {}", i + 1, total, path.display(), out_path.display());
+
+            let input = std::fs::read_to_string(path).map_err(|e| PiiError::NlpEngine(format!("{}: {e}", path.display())))?;
+            let t = std::time::Instant::now();
+            let output = anonymize_text(&analyzer, &lang, &anon_config, &input)?;
+            let elapsed = t.elapsed();
+
+            std::fs::write(&out_path, &output).map_err(|e| PiiError::NlpEngine(format!("{}: {e}", out_path.display())))?;
+            eprintln!("  → OK ({:.1}ms)", elapsed.as_secs_f64() * 1000.0);
+        }
+        eprintln!("{total} fichier(s) anonymisé(s).");
+    }
 
     Ok(())
 }

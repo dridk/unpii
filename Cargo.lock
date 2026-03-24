@@ -2816,8 +2816,10 @@ dependencies = [
  "candle-core",
  "candle-nn",
  "candle-transformers",
+ "clap",
  "hf-hub",
  "pii",
+ "regex",
  "serde_json",
  "tokenizers 0.15.2",
 ]
