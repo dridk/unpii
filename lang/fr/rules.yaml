@@ -1,0 +1,80 @@
+whitelist_files:
+  - whitelist.txt
+
+NOM:
+  standard:
+    patterns:
+      # Titre + nom (capture uniquement le nom)
+      - '(?i:Docteur|Dr\.?|Professeur|Prof\.?|Pr\.?|Monsieur|Mr\.?|Madame|Mme\.?|Mlle\.?)\s+([A-ZÀ-ÖØ-Þ][A-ZÀ-ÖØ-Þa-zà-öø-ÿ''\-]+(?:[\s\-]+[A-ZÀ-ÖØ-Þ][A-ZÀ-ÖØ-Þa-zà-öø-ÿ''\-]+)*)'
+    blacklist_files:
+      - names.txt
+  paranoid:
+    patterns:
+      # MAJUSCULE Titlecase (DUPONT Jean) - min 4 lettres chaque mot
+      - '\b[A-ZÀ-Þ]{4,}(?:[\s\-''][A-ZÀ-Þ]+)*\s+[A-ZÀ-Þ][a-zà-ÿ]{3,}(?:[\-][A-ZÀ-Þ][a-zà-ÿ]{3,})*\b'
+      # Titlecase MAJUSCULE (Jean DUPONT) - min 4 lettres chaque mot
+      - '\b[A-ZÀ-Þ][a-zà-ÿ]{3,}(?:[\-][A-ZÀ-Þ][a-zà-ÿ]{3,})*\s+[A-ZÀ-Þ]{4,}(?:[\s\-''][A-ZÀ-Þ]+)*\b'
+
+TELEPHONE:
+  standard:
+    patterns:
+      # +33 (0)6 12 34 56 78 / +33(0)612345678
+      - '(?:(?:\+|00)\s?33\s?[\.\-]?\s?\(0\)\s?[1-9][\s.\-]?(?:[\s.\-]?\d{2}){4})'
+      # +33 6 12 34 56 78 / 0033612345678 / 06 12 34 56 78 / 0612345678
+      - '(?:(?:\+|00)\s?33\s?[\.\-]?|0)[1-9](?:[\s.\-]?\d{2}){4}'
+
+EMAIL:
+  standard:
+    patterns:
+      - '(?i)[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}'
+
+DATE:
+  standard:
+    patterns:
+      # DD/MM/YYYY
+      - '\b(?:0?[1-9]|[12]\d|3[01])[/\-.](?:0?[1-9]|1[0-2])[/\-.](?:19|20)\d{2}\b'
+      # DD/MM/YY
+      - '\b(?:0?[1-9]|[12]\d|3[01])[/\-.](?:0?[1-9]|1[0-2])[/\-.]\d{2}\b'
+      # 8 juillet 2020
+      - '(?i)\b(?:0?[1-9]|[12]\d|3[01])\s+(?:er\s+)?(?:janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)\s+(?:19|20)\d{2}\b'
+      # 20 mars
+      - '(?i)\b(?:0?[1-9]|[12]\d|3[01])\s+(?:er\s+)?(?:janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)\b'
+      # février 2020
+      - '(?i)\b(?:janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)\s+(?:19|20)\d{2}\b'
+      # YYYY-MM-DD (ISO)
+      - '\b(?:19|20)\d{2}[-/](?:0?[1-9]|1[0-2])[-/](?:0?[1-9]|[12]\d|3[01])\b'
+
+ADRESSE:
+  standard:
+    patterns:
+      # Numéro + type de voie + nom + code postal + ville
+      - '(?i)\d{1,4}\s*,?\s*(?:rue|avenue|av\.?|boulevard|bd\.?|all[eé]e|impasse|chemin|route|place|cours|passage|voie|quai|square|r[eé]sidence)\s+[a-zA-ZÀ-ÿ\-'' ]{1,60},?\s*\d{5}\s*,?\s*[A-ZÀ-ÿ][a-zA-ZÀ-ÿ\-'']{1,30}'
+      # Numéro + type de voie + 1-4 mots
+      - '(?i)\d{1,4}\s*,?\s*(?:rue|avenue|av\.?|boulevard|bd\.?|all[eé]e|impasse|chemin|route|place|cours|passage|voie|quai|square|r[eé]sidence)\s+[a-zA-ZÀ-ÿ''\-]+(?:\s+[a-zA-ZÀ-ÿ''\-]+){0,3}'
+    blacklist_files:
+      - cities.txt
+
+CODE_POSTAL:
+  standard:
+    patterns:
+      # Code postal + ville
+      - '\b\d{5}\s+[A-ZÀ-Þ][A-ZÀ-Þa-zà-ÿ\-]+(?:\s+[A-ZÀ-Þ][A-ZÀ-Þa-zà-ÿ\-]+){0,2}\b'
+
+NIR:
+  standard:
+    patterns:
+      # NIR compact
+      - '\b[12]\d{2}(?:0[1-9]|1[0-2])\d{2}\d{3}\d{3}(?:\d{2})?\b'
+      # NIR avec espaces
+      - '\b[12]\s?\d{2}\s?(?:0[1-9]|1[0-2])\s?\d{2}\s?\d{3}\s?\d{3}\s?(?:\d{2})?\b'
+
+IBAN:
+  standard:
+    patterns:
+      - '\bFR\d{2}[\s]?\d{4}[\s]?\d{4}[\s]?\d{4}[\s]?\d{4}[\s]?\d{4}[\s]?\d{3}\b'
+
+NUMBER:
+  paranoid:
+    patterns:
+      # 5+ chiffres d'affilée
+      - '\d{5,}'
