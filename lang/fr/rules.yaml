@@ -61,10 +61,10 @@ DATE:
 ADRESSE:
   standard:
     patterns:
-      # Numéro + type de voie + nom + code postal + ville
-      - '(?i)\d{1,4}\s*,?\s*(?:rue|avenue|av\.?|boulevard|bd\.?|all[eé]e|impasse|chemin|route|place|cours|passage|voie|quai|square|r[eé]sidence)\s+[a-zA-ZÀ-ÿ\-'' ]{1,60},?\s*\d{5}\s*,?\s*[A-ZÀ-ÿ][a-zA-ZÀ-ÿ\-'']{1,30}'
-      # Numéro + type de voie + 1-4 mots
-      - '(?i)\d{1,4}\s*,?\s*(?:rue|avenue|av\.?|boulevard|bd\.?|all[eé]e|impasse|chemin|route|place|cours|passage|voie|quai|square|r[eé]sidence)\s+[a-zA-ZÀ-ÿ''\-]+(?:\s+[a-zA-ZÀ-ÿ''\-]+){0,3}'
+      # Numéro + bis/ter + type de voie + nom + code postal + ville
+      - '(?i)\d{1,4}\s*,?\s*(?:bis|ter|quater)?\s*,?\s*(?:rue|avenue|av\.?|boulevard|bd\.?|all[eé]e|impasse|chemin|route|place|cours|passage|voie|quai|square|r[eé]sidence)\s+[a-zA-ZÀ-ÿ\-'' ]{1,60},?\s*\d{5}\s*,?\s*[A-ZÀ-ÿ][a-zA-ZÀ-ÿ\-'']{1,30}'
+      # Numéro + bis/ter + type de voie + 1-4 mots
+      - '(?i)\d{1,4}\s*,?\s*(?:bis|ter|quater)?\s*,?\s*(?:rue|avenue|av\.?|boulevard|bd\.?|all[eé]e|impasse|chemin|route|place|cours|passage|voie|quai|square|r[eé]sidence)\s+[a-zA-ZÀ-ÿ''\-]+(?:\s+[a-zA-ZÀ-ÿ''\-]+){0,3}'
     blacklist_files:
       - cities.txt
 
