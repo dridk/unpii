@@ -4,16 +4,18 @@ whitelist_files:
 NOM:
   standard:
     patterns:
-      # Titre + nom (capture uniquement le nom)
-      - '(?i:Docteur|Dr\.?|Professeur|Prof\.?|Pr\.?|Monsieur|Mr\.?|Madame|Mme\.?|Mlle\.?)\s+([A-ZÀ-ÖØ-Þ][A-ZÀ-ÖØ-Þa-zà-öø-ÿ''\-]+(?:[\s\-]+[A-ZÀ-ÖØ-Þ][A-ZÀ-ÖØ-Þa-zà-öø-ÿ''\-]+)*)'
+      # Titre + initiales optionnelles + nom (capture tout après le titre)
+      - '(?i:Docteur|Dr\.?|Professeur|Prof\.?|Pr\.?|Monsieur|Mr\.?|Madame|Mme\.?|Mlle\.?)\s+((?:\p{Lu}[\.\-]+\s*)*[\p{Lu}][\p{L}''\-]+(?:[\s\-]+[\p{Lu}][\p{L}''\-]+)*)'
     blacklist_files:
       - names.txt
   paranoid:
     patterns:
       # MAJUSCULE Titlecase (DUPONT Jean) - min 4 lettres chaque mot
-      - '\b[A-ZÀ-Þ]{4,}(?:[\s\-''][A-ZÀ-Þ]+)*\s+[A-ZÀ-Þ][a-zà-ÿ]{3,}(?:[\-][A-ZÀ-Þ][a-zà-ÿ]{3,})*\b'
+      - '\b\p{Lu}{4,}(?:[\s\-'']\p{Lu}+)*\s+\p{Lu}\p{Ll}{3,}(?:[\-]\p{Lu}\p{Ll}{3,})*\b'
       # Titlecase MAJUSCULE (Jean DUPONT) - min 4 lettres chaque mot
-      - '\b[A-ZÀ-Þ][a-zà-ÿ]{3,}(?:[\-][A-ZÀ-Þ][a-zà-ÿ]{3,})*\s+[A-ZÀ-Þ]{4,}(?:[\s\-''][A-ZÀ-Þ]+)*\b'
+      - '\b\p{Lu}\p{Ll}{3,}(?:[\-]\p{Lu}\p{Ll}{3,})*\s+\p{Lu}{4,}(?:[\s\-'']\p{Lu}+)*\b'
+      # Initiale + Titlecase (J. Jean) - min 4 lettres pour le mot
+      - '\b\p{Lu}\.\s+\p{Lu}\p{Ll}{3,}\b'
 
 TELEPHONE:
   standard:
@@ -27,6 +29,18 @@ EMAIL:
   standard:
     patterns:
       - '(?i)[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}'
+  paranoid:
+    patterns:
+      # Tout ce qui contient un @
+      - '\S+@\S+'
+
+BIRTHDATE:
+  standard:
+    patterns:
+      # né(e) le DD/MM/YYYY ou DD/MM/YY ou DD.MM.YY
+      - '(?i)n[eé]e?\s+le\s+(?:0?[1-9]|[12]\d|3[01])[/\-.](?:0?[1-9]|1[0-2])[/\-.]\d{2,4}'
+      # né(e) le 3 janvier 2020 / né(e) le 1er mars 1990
+      - '(?i)n[eé]e?\s+le\s+(?:0?[1-9]|[12]\d|3[01])(?:\s*er)?\s+(?:janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)(?:\s+(?:19|20)?\d{2})?'
 
 DATE:
   standard:

@@ -1,11 +1,11 @@
 import unpii
 import polars as pl
-
+import readline
 
 while True:
 
     text = input("text: ")
-    print(unpii.mask(text, mode="paranoid"))
+    print(unpii.mask(text, mode="standard"))
 
 # print("\n=== Masquage étoiles ===")
 # print(unpii.mask(text, mask="stars"))
