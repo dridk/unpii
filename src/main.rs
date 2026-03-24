@@ -193,26 +193,13 @@ fn main() -> PiiResult<()> {
     let args: Vec<String> = std::env::args().collect();
 
     let mut use_gpu = true;
-    let mut text_arg: Option<&str> = None;
-
-    let mut i = 1;
-    while i < args.len() {
-        match args[i].as_str() {
+    for arg in &args[1..] {
+        match arg.as_str() {
             "--cpu" => use_gpu = false,
             "--gpu" => use_gpu = true,
-            _ if text_arg.is_none() => text_arg = Some(&args[i]),
             _ => {}
         }
-        i += 1;
     }
-
-    let text = match text_arg {
-        Some(t) => t,
-        None => {
-            eprintln!("Usage: {} [--cpu|--gpu] \"texte à anonymiser\"", args[0]);
-            std::process::exit(1);
-        }
-    };
 
     let ner_model = CamembertNerModel::load("almanach/camembertav2-base-ftb-ner", use_gpu)?;
     let base_engine = Box::new(SimpleNlpEngine::new(true));
@@ -226,10 +213,40 @@ fn main() -> PiiResult<()> {
     let lang = Language::new("fr");
     let anon_config = AnonymizeConfig::default();
 
-    let result = analyzer.analyze(text, &lang)?;
-    let anonymized = Anonymizer::anonymize(text, &result.entities, &anon_config)?;
+    eprintln!("\nEntrez un texte à anonymiser (Ctrl+C pour quitter) :");
+    let stdin = std::io::stdin();
+    let mut line = String::new();
 
-    println!("{}", anonymized.text);
+    loop {
+        eprint!("> ");
+        line.clear();
+        match stdin.read_line(&mut line) {
+            Ok(0) => break, // EOF
+            Ok(_) => {}
+            Err(e) => {
+                eprintln!("Erreur de lecture : {e}");
+                break;
+            }
+        }
+
+        let text = line.trim();
+        if text.is_empty() {
+            continue;
+        }
+
+        let t = std::time::Instant::now();
+        match analyzer.analyze(text, &lang) {
+            Ok(result) => match Anonymizer::anonymize(text, &result.entities, &anon_config) {
+                Ok(anonymized) => {
+                    let elapsed = t.elapsed();
+                    println!("{}", anonymized.text);
+                    eprintln!("({:.1}ms)", elapsed.as_secs_f64() * 1000.0);
+                }
+                Err(e) => eprintln!("Erreur d'anonymisation : {e}"),
+            },
+            Err(e) => eprintln!("Erreur d'analyse : {e}"),
+        }
+    }
 
     Ok(())
 }
