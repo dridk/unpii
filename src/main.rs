@@ -35,13 +35,6 @@ struct Cli {
     #[arg(long, default_value = "ano")]
     prefix: String,
 
-    /// Utiliser le GPU (CUDA)
-    #[arg(long)]
-    gpu: bool,
-
-    /// Forcer le CPU
-    #[arg(long)]
-    cpu: bool,
 }
 
 // ── Modèle CamemBERT v2 NER ────────────────────────────────────────────────
@@ -55,7 +48,7 @@ struct CamembertNerModel {
 }
 
 impl CamembertNerModel {
-    fn load(model_id: &str, use_gpu: bool) -> PiiResult<Self> {
+    fn load(model_id: &str) -> PiiResult<Self> {
         eprintln!("Téléchargement du modèle {model_id}...");
         let repo = Repo::with_revision(model_id.to_string(), RepoType::Model, "main".to_string());
         let api = Api::new().map_err(|e| PiiError::NlpEngine(e.to_string()))?;
@@ -79,13 +72,7 @@ impl CamembertNerModel {
             Tokenizer::from_file(&tokenizer_path).map_err(|e| PiiError::NlpEngine(e.to_string()))?;
         tokenizer.with_padding(Some(PaddingParams::default()));
 
-        let device = if use_gpu {
-            Device::cuda_if_available(0).map_err(|e| PiiError::NlpEngine(e.to_string()))?
-        } else {
-            Device::Cpu
-        };
-        let device_name = if device.is_cuda() { "GPU (CUDA)" } else { "CPU" };
-        eprintln!("Device : {device_name}");
+        let device = Device::Cpu;
 
         let weights_data = std::fs::read(&weights_path).map_err(|e| PiiError::NlpEngine(e.to_string()))?;
         let vb = VarBuilder::from_buffered_safetensors(
@@ -241,9 +228,7 @@ fn anonymize_text(
 fn main() -> PiiResult<()> {
     let cli = Cli::parse();
 
-    let use_gpu = if cli.cpu { false } else { cli.gpu };
-
-    let ner_model = CamembertNerModel::load("almanach/camembertav2-base-ftb-ner", use_gpu)?;
+    let ner_model = CamembertNerModel::load("almanach/camembertav2-base-ftb-ner")?;
     let base_engine = Box::new(SimpleNlpEngine::new(true));
     let ner_engine = CandleNerEngine::new(base_engine, Box::new(ner_model))?;
 
