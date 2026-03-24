@@ -26,6 +26,7 @@ pub struct MaskOptions {
     pub mode: MaskMode,
     pub paranoid: bool,
     pub ignore_groups: HashSet<PiiCategory>,
+    pub extra: Vec<String>,
 }
 
 impl Default for MaskOptions {
@@ -34,6 +35,7 @@ impl Default for MaskOptions {
             mode: MaskMode::Placeholder,
             paranoid: false,
             ignore_groups: HashSet::new(),
+            extra: Vec::new(),
         }
     }
 }
@@ -105,7 +107,36 @@ impl Engine {
             spans.extend(ks.find_spans(text));
         }
 
-        // 3. Whitelist: remove spans that overlap with protected words
+        // 3. Extra words (case-insensitive, word boundary)
+        if !opts.extra.is_empty() {
+            let text_lower = text.to_lowercase();
+            for word in &opts.extra {
+                let word_lower = word.to_lowercase();
+                if word_lower.is_empty() {
+                    continue;
+                }
+                let mut start = 0;
+                while let Some(pos) = text_lower[start..].find(&word_lower) {
+                    let abs_start = start + pos;
+                    let abs_end = abs_start + word_lower.len();
+                    // Check word boundaries
+                    let before_ok = abs_start == 0
+                        || !text.as_bytes()[abs_start - 1].is_ascii_alphanumeric();
+                    let after_ok = abs_end >= text.len()
+                        || !text.as_bytes()[abs_end].is_ascii_alphanumeric();
+                    if before_ok && after_ok {
+                        spans.push(Span::new(
+                            abs_start,
+                            abs_end,
+                            PiiCategory::Custom("EXTRA".to_string()),
+                        ));
+                    }
+                    start = abs_end;
+                }
+            }
+        }
+
+        // 4. Whitelist: remove spans that overlap with protected words
         if let Some(ref ws) = self.whitelist {
             let protected = ws.find_protected_spans(text);
             spans.retain(|span| {
@@ -115,12 +146,12 @@ impl Engine {
             });
         }
 
-        // 4. Filter by ignore_groups
+        // 5. Filter by ignore_groups
         if !opts.ignore_groups.is_empty() {
             spans.retain(|s| !opts.ignore_groups.contains(&s.category));
         }
 
-        // 5. Resolve overlaps
+        // 6. Resolve overlaps
         resolve_overlaps(&mut spans)
     }
 

@@ -39,7 +39,7 @@ impl From<Span> for PySpan {
     }
 }
 
-fn parse_opts(mask: &str, mode: &str, ignore_groups: Option<Vec<String>>) -> MaskOptions {
+fn parse_opts(mask: &str, mode: &str, ignore_groups: Option<Vec<String>>, extra: Option<Vec<String>>) -> MaskOptions {
     let mask_mode = MaskMode::from_str(mask);
     let paranoid = mode == "paranoid";
     let ignore = ignore_groups
@@ -52,31 +52,34 @@ fn parse_opts(mask: &str, mode: &str, ignore_groups: Option<Vec<String>>) -> Mas
         mode: mask_mode,
         paranoid,
         ignore_groups: ignore,
+        extra: extra.unwrap_or_default(),
     }
 }
 
 #[pyfunction]
-#[pyo3(signature = (text, *, mask="placeholder", mode="standard", ignore_groups=None))]
+#[pyo3(signature = (text, *, mask="placeholder", mode="standard", ignore_groups=None, extra=None))]
 fn mask(
     text: &str,
     mask: &str,
     mode: &str,
     ignore_groups: Option<Vec<String>>,
+    extra: Option<Vec<String>>,
 ) -> PyResult<String> {
     let engine = Engine::default_engine();
-    let opts = parse_opts(mask, mode, ignore_groups);
+    let opts = parse_opts(mask, mode, ignore_groups, extra);
     Ok(engine.mask(text, &opts))
 }
 
 #[pyfunction]
-#[pyo3(signature = (text, *, mode="standard", ignore_groups=None))]
+#[pyo3(signature = (text, *, mode="standard", ignore_groups=None, extra=None))]
 fn find_spans(
     text: &str,
     mode: &str,
     ignore_groups: Option<Vec<String>>,
+    extra: Option<Vec<String>>,
 ) -> PyResult<Vec<PySpan>> {
     let engine = Engine::default_engine();
-    let opts = parse_opts("placeholder", mode, ignore_groups);
+    let opts = parse_opts("placeholder", mode, ignore_groups, extra);
     let spans = engine.find_spans(text, &opts);
     Ok(spans.into_iter().map(PySpan::from).collect())
 }

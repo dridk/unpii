@@ -13,6 +13,7 @@ class UnpiiNamespace:
 
     def mask(
         self,
+        *extra: pl.Expr,
         mask: str = "placeholder",
         mode: str = "standard",
         ignore_groups: list[str] | None = None,
@@ -20,11 +21,12 @@ class UnpiiNamespace:
         return register_plugin_function(
             plugin_path=LIB,
             function_name="mask_text",
-            args=[self._expr],
+            args=[self._expr, *extra],
             kwargs={
                 "mask": mask,
                 "mode": mode,
                 "ignore_groups": ignore_groups or [],
+                "extra_count": len(extra),
             },
             is_elementwise=True,
         )

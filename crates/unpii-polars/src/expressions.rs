@@ -11,6 +11,8 @@ struct MaskKwargs {
     mode: String,
     #[serde(default)]
     ignore_groups: Vec<String>,
+    #[serde(default)]
+    extra_count: usize,
 }
 
 fn default_mask() -> String {
@@ -23,14 +25,48 @@ fn default_mode() -> String {
 #[polars_expr(output_type=String)]
 fn mask_text(inputs: &[Series], kwargs: MaskKwargs) -> PolarsResult<Series> {
     let engine = Engine::default_engine();
-    let opts = build_opts(&kwargs);
+    let base_opts = build_opts(&kwargs);
 
     let ca = inputs[0].str()?;
-    let out: StringChunked = ca.apply_into_string_amortized(|value, buf| {
-        let result = engine.mask(value, &opts);
-        buf.push_str(&result);
-    });
-    Ok(out.into_series())
+
+    // Collect extra columns as StringChunked
+    let extra_cols: Vec<&StringChunked> = (1..=kwargs.extra_count)
+        .map(|i| inputs[i].str())
+        .collect::<PolarsResult<Vec<_>>>()?;
+
+    if extra_cols.is_empty() {
+        // Fast path: no extra columns, reuse same opts for all rows
+        let out: StringChunked = ca.apply_into_string_amortized(|value, buf| {
+            let result = engine.mask(value, &base_opts);
+            buf.push_str(&result);
+        });
+        Ok(out.into_series())
+    } else {
+        // Slow path: build per-row opts with extra words from columns
+        let out: StringChunked = ca
+            .into_iter()
+            .enumerate()
+            .map(|(idx, opt_val)| {
+                opt_val.map(|value| {
+                    let mut opts = MaskOptions {
+                        mode: base_opts.mode.clone(),
+                        paranoid: base_opts.paranoid,
+                        ignore_groups: base_opts.ignore_groups.clone(),
+                        extra: Vec::new(),
+                    };
+                    for col in &extra_cols {
+                        if let Some(word) = col.get(idx) {
+                            if !word.is_empty() {
+                                opts.extra.push(word.to_string());
+                            }
+                        }
+                    }
+                    engine.mask(value, &opts)
+                })
+            })
+            .collect();
+        Ok(out.into_series())
+    }
 }
 
 fn build_opts(kwargs: &MaskKwargs) -> MaskOptions {
@@ -46,5 +82,6 @@ fn build_opts(kwargs: &MaskKwargs) -> MaskOptions {
         mode,
         paranoid,
         ignore_groups,
+        extra: Vec::new(),
     }
 }
