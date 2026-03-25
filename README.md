@@ -2,7 +2,7 @@
 
 High-performance French medical text anonymization library. Rust core with Python bindings and native Polars integration.
 
-Designed to process millions of documents efficiently.
+Designed to process millions of documents efficiently. Inspired by [Micropot/incognito](https://github.com/Micropot/incognito)
 
 ## Installation
 
@@ -179,3 +179,14 @@ With Polars: automatic parallelization across all cores.
 ## License
 
 MIT
+
+## See also 
+
+https://github.com/micropot/incognito
+https://github.com/microsoft/presidio
+
+
+
+
+
+
