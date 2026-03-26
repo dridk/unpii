@@ -1,6 +1,11 @@
+use std::sync::atomic::{AtomicUsize, Ordering};
+
 use pyo3::prelude::*;
 use pyo3_polars::PolarsAllocator;
 use unpii_core::{Engine, MaskMode, MaskOptions, PiiCategory, Span};
+
+/// 0 means use all available cores (rayon default).
+pub(crate) static MAX_THREADS: AtomicUsize = AtomicUsize::new(0);
 
 mod expressions;
 
@@ -84,10 +89,24 @@ fn find_spans(
     Ok(spans.into_iter().map(PySpan::from).collect())
 }
 
+#[pyfunction]
+#[pyo3(signature = (n,))]
+fn set_max_threads(n: usize) -> PyResult<()> {
+    MAX_THREADS.store(n, Ordering::Relaxed);
+    Ok(())
+}
+
+#[pyfunction]
+fn get_max_threads() -> usize {
+    MAX_THREADS.load(Ordering::Relaxed)
+}
+
 #[pymodule]
 fn unpii(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(mask, m)?)?;
     m.add_function(wrap_pyfunction!(find_spans, m)?)?;
+    m.add_function(wrap_pyfunction!(set_max_threads, m)?)?;
+    m.add_function(wrap_pyfunction!(get_max_threads, m)?)?;
     m.add_class::<PySpan>()?;
     Ok(())
 }

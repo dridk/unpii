@@ -1,8 +1,12 @@
+use std::sync::atomic::Ordering;
+
 use polars::prelude::*;
 use pyo3_polars::derive::polars_expr;
 use rayon::prelude::*;
 use serde::Deserialize;
 use unpii_core::{Engine, MaskMode, MaskOptions, PiiCategory};
+
+use crate::MAX_THREADS;
 
 #[derive(Deserialize)]
 struct MaskKwargs {
@@ -37,36 +41,47 @@ fn mask_text(inputs: &[Series], kwargs: MaskKwargs) -> PolarsResult<Series> {
 
     let values: Vec<Option<&str>> = ca.into_iter().collect();
 
-    let results: Vec<Option<String>> = if extra_cols.is_empty() {
-        // Fast path: no extra columns, reuse same opts for all rows
-        values
-            .par_iter()
-            .map(|opt_val| opt_val.map(|value| engine.mask(value, &base_opts)))
-            .collect()
-    } else {
-        // Slow path: build per-row opts with extra words from columns
-        values
-            .par_iter()
-            .enumerate()
-            .map(|(idx, opt_val)| {
-                opt_val.map(|value| {
-                    let mut opts = MaskOptions {
-                        mode: base_opts.mode.clone(),
-                        paranoid: base_opts.paranoid,
-                        ignore_groups: base_opts.ignore_groups.clone(),
-                        extra: Vec::new(),
-                    };
-                    for col in &extra_cols {
-                        if let Some(word) = col.get(idx) {
-                            if !word.is_empty() {
-                                opts.extra.push(word.to_string());
+    let do_parallel = |values: &Vec<Option<&str>>| -> Vec<Option<String>> {
+        if extra_cols.is_empty() {
+            values
+                .par_iter()
+                .map(|opt_val| opt_val.map(|value| engine.mask(value, &base_opts)))
+                .collect()
+        } else {
+            values
+                .par_iter()
+                .enumerate()
+                .map(|(idx, opt_val)| {
+                    opt_val.map(|value| {
+                        let mut opts = MaskOptions {
+                            mode: base_opts.mode.clone(),
+                            paranoid: base_opts.paranoid,
+                            ignore_groups: base_opts.ignore_groups.clone(),
+                            extra: Vec::new(),
+                        };
+                        for col in &extra_cols {
+                            if let Some(word) = col.get(idx) {
+                                if !word.is_empty() {
+                                    opts.extra.push(word.to_string());
+                                }
                             }
                         }
-                    }
-                    engine.mask(value, &opts)
+                        engine.mask(value, &opts)
+                    })
                 })
-            })
-            .collect()
+                .collect()
+        }
+    };
+
+    let n = MAX_THREADS.load(Ordering::Relaxed);
+    let results = if n > 0 {
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(n)
+            .build()
+            .map_err(|e| PolarsError::ComputeError(e.to_string().into()))?;
+        pool.install(|| do_parallel(&values))
+    } else {
+        do_parallel(&values)
     };
 
     let out: StringChunked = results.into_iter().collect();
