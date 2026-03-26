@@ -2084,6 +2084,7 @@ dependencies = [
  "polars-arrow",
  "pyo3",
  "pyo3-polars",
+ "rayon",
  "serde",
  "unpii-core",
 ]

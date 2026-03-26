@@ -1,5 +1,6 @@
 use polars::prelude::*;
 use pyo3_polars::derive::polars_expr;
+use rayon::prelude::*;
 use serde::Deserialize;
 use unpii_core::{Engine, MaskMode, MaskOptions, PiiCategory};
 
@@ -34,17 +35,18 @@ fn mask_text(inputs: &[Series], kwargs: MaskKwargs) -> PolarsResult<Series> {
         .map(|i| inputs[i].str())
         .collect::<PolarsResult<Vec<_>>>()?;
 
-    if extra_cols.is_empty() {
+    let values: Vec<Option<&str>> = ca.into_iter().collect();
+
+    let results: Vec<Option<String>> = if extra_cols.is_empty() {
         // Fast path: no extra columns, reuse same opts for all rows
-        let out: StringChunked = ca.apply_into_string_amortized(|value, buf| {
-            let result = engine.mask(value, &base_opts);
-            buf.push_str(&result);
-        });
-        Ok(out.into_series())
+        values
+            .par_iter()
+            .map(|opt_val| opt_val.map(|value| engine.mask(value, &base_opts)))
+            .collect()
     } else {
         // Slow path: build per-row opts with extra words from columns
-        let out: StringChunked = ca
-            .into_iter()
+        values
+            .par_iter()
             .enumerate()
             .map(|(idx, opt_val)| {
                 opt_val.map(|value| {
@@ -64,9 +66,11 @@ fn mask_text(inputs: &[Series], kwargs: MaskKwargs) -> PolarsResult<Series> {
                     engine.mask(value, &opts)
                 })
             })
-            .collect();
-        Ok(out.into_series())
-    }
+            .collect()
+    };
+
+    let out: StringChunked = results.into_iter().collect();
+    Ok(out.with_name(ca.name().clone()).into_series())
 }
 
 fn build_opts(kwargs: &MaskKwargs) -> MaskOptions {

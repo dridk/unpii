@@ -41,7 +41,7 @@ uv run pytest tests/python/ -v
 ### Polars Integration
 - Real Polars expression plugin via `#[polars_expr]` + `pyo3-polars`, NOT `map_batches`.
 - Python namespace: `pl.col("text").unpii.mask()` via `@pl.api.register_expr_namespace("unpii")`.
-- Polars handles parallelization natively. No rayon needed.
+- Polars expression plugins receive the full Series; rayon is used inside the plugin for intra-expression parallelism.
 
 ### Masking Pipeline
 1. Regex detection (per group, per mode)
