@@ -3,13 +3,13 @@ use std::fmt;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum PiiCategory {
-    Nom,
+    Person,
     Email,
     Date,
     Birthdate,
-    Adresse,
-    Telephone,
-    CodePostal,
+    Location,
+    Phone,
+    ZipCode,
     Nir,
     Iban,
     Custom(String),
@@ -18,13 +18,13 @@ pub enum PiiCategory {
 impl PiiCategory {
     pub fn placeholder(&self) -> &str {
         match self {
-            PiiCategory::Nom => "<NOM>",
+            PiiCategory::Person => "<PERSON>",
             PiiCategory::Email => "<EMAIL>",
             PiiCategory::Date => "<DATE>",
             PiiCategory::Birthdate => "<BIRTHDATE>",
-            PiiCategory::Adresse => "<ADRESSE>",
-            PiiCategory::Telephone => "<TELEPHONE>",
-            PiiCategory::CodePostal => "<CODE_POSTAL>",
+            PiiCategory::Location => "<LOCATION>",
+            PiiCategory::Phone => "<PHONE>",
+            PiiCategory::ZipCode => "<ZIP_CODE>",
             PiiCategory::Nir => "<NIR>",
             PiiCategory::Iban => "<IBAN>",
             PiiCategory::Custom(s) => {
@@ -43,10 +43,10 @@ impl PiiCategory {
             PiiCategory::Nir => 1,
             PiiCategory::Iban => 1,
             PiiCategory::Email => 1,
-            PiiCategory::Telephone => 1,
-            PiiCategory::Nom => 2,
-            PiiCategory::Adresse => 2,
-            PiiCategory::CodePostal => 2,
+            PiiCategory::Phone => 1,
+            PiiCategory::Person => 2,
+            PiiCategory::Location => 2,
+            PiiCategory::ZipCode => 2,
             PiiCategory::Date => 3,
             PiiCategory::Custom(_) => 4,
         }
@@ -54,13 +54,13 @@ impl PiiCategory {
 
     pub fn from_label(label: &str) -> PiiCategory {
         match label.to_uppercase().as_str() {
-            "NOM" => PiiCategory::Nom,
+            "PERSON" => PiiCategory::Person,
             "EMAIL" => PiiCategory::Email,
             "DATE" => PiiCategory::Date,
             "BIRTHDATE" => PiiCategory::Birthdate,
-            "ADRESSE" => PiiCategory::Adresse,
-            "TELEPHONE" => PiiCategory::Telephone,
-            "CODE_POSTAL" => PiiCategory::CodePostal,
+            "LOCATION" => PiiCategory::Location,
+            "PHONE" => PiiCategory::Phone,
+            "ZIP_CODE" => PiiCategory::ZipCode,
             "NIR" => PiiCategory::Nir,
             "IBAN" => PiiCategory::Iban,
             other => PiiCategory::Custom(other.to_string()),

@@ -35,45 +35,45 @@ class TestEmail:
         assert "EMAIL" in categories("foo@bar", mode="paranoid")
 
 
-# ── ADRESSE ──────────────────────────────────────────────────────────────────
+# ── LOCATION ─────────────────────────────────────────────────────────────────
 
 
-class TestAdresse:
+class TestLocation:
     def test_standard_with_number(self):
-        assert spans("12 rue de la Paix") == [("12 rue de la Paix", "ADRESSE")]
+        assert spans("12 rue de la Paix") == [("12 rue de la Paix", "LOCATION")]
 
     def test_paranoid_without_number(self):
-        assert spans("Rue Perronnière", mode="paranoid") == [("Rue Perronnière", "ADRESSE")]
+        assert spans("Rue Perronnière", mode="paranoid") == [("Rue Perronnière", "LOCATION")]
 
     def test_paranoid_chemin(self):
-        assert spans("Chemin de Piscop", mode="paranoid") == [("Chemin de Piscop", "ADRESSE")]
+        assert spans("Chemin de Piscop", mode="paranoid") == [("Chemin de Piscop", "LOCATION")]
 
     def test_paranoid_boulevard(self):
-        assert spans("Boulevard Saint-Germain", mode="paranoid") == [("Boulevard Saint-Germain", "ADRESSE")]
+        assert spans("Boulevard Saint-Germain", mode="paranoid") == [("Boulevard Saint-Germain", "LOCATION")]
 
     def test_no_number_not_in_standard(self):
         """Without a number, should not match in standard mode."""
         assert spans("Rue Perronnière") == []
 
 
-# ── TELEPHONE ────────────────────────────────────────────────────────────────
+# ── PHONE ────────────────────────────────────────────────────────────────────
 
 
-class TestTelephone:
+class TestPhone:
     def test_fr_standard(self):
-        assert spans("tel: 06 12 34 56 78") == [("06 12 34 56 78", "TELEPHONE")]
+        assert spans("tel: 06 12 34 56 78") == [("06 12 34 56 78", "PHONE")]
 
     def test_fr_plus33(self):
-        assert spans("tel: +33 6 12 34 56 78") == [("+33 6 12 34 56 78", "TELEPHONE")]
+        assert spans("tel: +33 6 12 34 56 78") == [("+33 6 12 34 56 78", "PHONE")]
 
     def test_international_paranoid(self):
-        assert spans("+15-210.298-5684", mode="paranoid") == [("+15-210.298-5684", "TELEPHONE")]
+        assert spans("+15-210.298-5684", mode="paranoid") == [("+15-210.298-5684", "PHONE")]
 
     def test_international_paranoid_2(self):
-        assert spans("call +87 56 422-8133 now", mode="paranoid") == [("+87 56 422-8133", "TELEPHONE")]
+        assert spans("call +87 56 422-8133 now", mode="paranoid") == [("+87 56 422-8133", "PHONE")]
 
     def test_international_paranoid_3(self):
-        assert spans("num +33 63.728-6394 fin", mode="paranoid") == [("+33 63.728-6394", "TELEPHONE")]
+        assert spans("num +33 63.728-6394 fin", mode="paranoid") == [("+33 63.728-6394", "PHONE")]
 
     def test_short_no_match_paranoid(self):
         """Too few digits should not match."""

@@ -1,7 +1,7 @@
 whitelist_files:
   - whitelist.txt
 
-NOM:
+PERSON:
   standard:
     patterns:
       # Titre + initiales optionnelles + nom (capture tout après le titre)
@@ -17,7 +17,7 @@ NOM:
       # Initiale + Titlecase (J. Jean) - min 4 lettres pour le mot
       - '\b\p{Lu}\.\s+\p{Lu}\p{Ll}{3,}\b'
 
-TELEPHONE:
+PHONE:
   standard:
     patterns:
       # +33 (0)6 12 34 56 78 / +33(0)612345678
@@ -82,7 +82,7 @@ DATE:
       # YYYY-MM-DD (ISO) with optional Thh:mm:ss
       - '\b(?:19|20)\d{2}[-/](?:0?[1-9]|1[0-2])[-/](?:0?[1-9]|[12]\d|3[01])(?:T\d{2}:\d{2}:\d{2})?\b'
 
-ADRESSE:
+LOCATION:
   standard:
     patterns:
       # Numéro + bis/ter + type de voie + nom + code postal + ville
@@ -97,7 +97,7 @@ ADRESSE:
       # Type de voie + 1-4 mots (sans numéro)
       - '(?i)\b(?:rue|avenue|av\.?|boulevard|bd\.?|all[eé]e|impasse|chemin|route|place|cours|passage|voie|quai|square|r[eé]sidence)\s+[a-zA-ZÀ-ÿ''\-]+(?:\s+[a-zA-ZÀ-ÿ''\-]+){0,3}'
 
-CODE_POSTAL:
+ZIP_CODE:
   standard:
     patterns:
       # Code postal + ville

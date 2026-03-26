@@ -57,7 +57,7 @@ mod tests {
     #[test]
     fn test_no_overlap() {
         let mut spans = vec![
-            Span::new(0, 5, PiiCategory::Nom),
+            Span::new(0, 5, PiiCategory::Person),
             Span::new(10, 15, PiiCategory::Email),
         ];
         let resolved = resolve_overlaps(&mut spans);
@@ -67,7 +67,7 @@ mod tests {
     #[test]
     fn test_overlap_keeps_longest() {
         let mut spans = vec![
-            Span::new(0, 10, PiiCategory::Nom),
+            Span::new(0, 10, PiiCategory::Person),
             Span::new(5, 8, PiiCategory::Email),
         ];
         let resolved = resolve_overlaps(&mut spans);
