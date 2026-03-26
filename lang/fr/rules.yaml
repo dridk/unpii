@@ -103,7 +103,7 @@ ZIP_CODE:
       # Code postal + ville
       - '\b\d{5}\s+[A-ZÀ-Þ][A-ZÀ-Þa-zà-ÿ\-]+(?:\s+[A-ZÀ-Þ][A-ZÀ-Þa-zà-ÿ\-]+){0,2}\b'
 
-NIR:
+SSN:
   standard:
     patterns:
       # NIR compact

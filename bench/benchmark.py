@@ -30,7 +30,7 @@ LABEL_MAP: dict[str, str] = {
     "STATE": "LOCATION",
     "COUNTRY": "LOCATION",
     "POSTCODE": "ZIP_CODE",
-    "SOCIALNUMBER": "NIR",
+    "SOCIALNUMBER": "SSN",
 }
 
 # eds-pseudo label → unified category
@@ -44,9 +44,9 @@ EDS_LABEL_MAP: dict[str, str] = {
     "ADRESSE": "LOCATION",
     "VILLE": "LOCATION",
     "ZIP": "ZIP_CODE",
-    "SECU": "NIR",
-    "IPP": "NIR",
-    "NDA": "NIR",
+    "SECU": "SSN",
+    "IPP": "SSN",
+    "NDA": "SSN",
     "HOPITAL": "LOCATION",
 }
 

@@ -10,7 +10,7 @@ pub enum PiiCategory {
     Location,
     Phone,
     ZipCode,
-    Nir,
+    Ssn,
     Iban,
     Custom(String),
 }
@@ -25,7 +25,7 @@ impl PiiCategory {
             PiiCategory::Location => "<LOCATION>",
             PiiCategory::Phone => "<PHONE>",
             PiiCategory::ZipCode => "<ZIP_CODE>",
-            PiiCategory::Nir => "<NIR>",
+            PiiCategory::Ssn => "<SSN>",
             PiiCategory::Iban => "<IBAN>",
             PiiCategory::Custom(s) => {
                 // We leak a string here but it's only called for static labels
@@ -40,7 +40,7 @@ impl PiiCategory {
     pub fn priority(&self) -> u8 {
         match self {
             PiiCategory::Birthdate => 0,
-            PiiCategory::Nir => 1,
+            PiiCategory::Ssn => 1,
             PiiCategory::Iban => 1,
             PiiCategory::Email => 1,
             PiiCategory::Phone => 1,
@@ -61,7 +61,7 @@ impl PiiCategory {
             "LOCATION" => PiiCategory::Location,
             "PHONE" => PiiCategory::Phone,
             "ZIP_CODE" => PiiCategory::ZipCode,
-            "NIR" => PiiCategory::Nir,
+            "SSN" => PiiCategory::Ssn,
             "IBAN" => PiiCategory::Iban,
             other => PiiCategory::Custom(other.to_string()),
         }
