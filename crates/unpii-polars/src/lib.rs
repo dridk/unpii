@@ -81,7 +81,27 @@ fn find_spans(
     let engine = Engine::default_engine();
     let opts = parse_opts("placeholder", mode, ignore_groups, mask);
     let spans = engine.find_spans(text, &opts);
-    Ok(spans.into_iter().map(PySpan::from).collect())
+
+    // Build byte-offset → char-offset lookup table
+    let mut byte_to_char = vec![0usize; text.len() + 1];
+    for (char_idx, (byte_idx, _)) in text.char_indices().enumerate() {
+        byte_to_char[byte_idx] = char_idx;
+    }
+    let total_chars = text.chars().count();
+    byte_to_char[text.len()] = total_chars;
+
+    Ok(spans
+        .into_iter()
+        .map(|s| {
+            let char_start = byte_to_char[s.start];
+            let char_end = byte_to_char[s.end];
+            PySpan {
+                start: char_start,
+                end: char_end,
+                category: s.category.placeholder().trim_matches('<').trim_matches('>').to_string(),
+            }
+        })
+        .collect())
 }
 
 #[pyfunction]

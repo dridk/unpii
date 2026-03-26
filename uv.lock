@@ -194,9 +194,11 @@ wheels = [
 
 [[package]]
 name = "unpii"
-version = "0.2.1"
+version = "0.3.0"
 source = { editable = "." }
-dependencies = [
+
+[package.optional-dependencies]
+polars = [
     { name = "polars" },
 ]
 
@@ -207,7 +209,8 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "polars", specifier = ">=1.0" }]
+requires-dist = [{ name = "polars", marker = "extra == 'polars'", specifier = ">=1.0" }]
+provides-extras = ["polars"]
 
 [package.metadata.requires-dev]
 dev = [

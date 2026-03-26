@@ -28,7 +28,7 @@ TELEPHONE:
 EMAIL:
   standard:
     patterns:
-      - '(?i)[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}'
+      - '(?i)[a-zA-Z0-9_%+\-][a-zA-Z0-9._%+\-]*@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}'
   paranoid:
     patterns:
       # Tout ce qui contient un @
@@ -38,9 +38,25 @@ BIRTHDATE:
   standard:
     patterns:
       # né(e) le DD/MM/YYYY ou DD/MM/YY ou DD.MM.YY
-      - '(?i)n[eé]e?\s+le\s+(?:0?[1-9]|[12]\d|3[01])[/\-.](?:0?[1-9]|1[0-2])[/\-.]\d{2,4}'
-      # né(e) le 3 janvier 2020 / né(e) le 1er mars 1990
-      - '(?i)n[eé]e?\s+le\s+(?:0?[1-9]|[12]\d|3[01])(?:\s*er)?\s+(?:janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)(?:\s+(?:19|20)?\d{2})?'
+      - '(?i)n[eé]e?\s+le\s+((?:0?[1-9]|[12]\d|3[01])[/\-.](?:0?[1-9]|1[0-2])[/\-.]\d{2,4})'
+      # né(e) le 3 janvier 2020 / né(e) le 23e avril 1948
+      - '(?i)n[eé]e?\s+le\s+((?:0?[1-9]|[12]\d|3[01])(?:e|er)?\s+(?:janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)(?:\s+(?:19|20)?\d{2})?)'
+      # né(e) le mois JJ, YYYY (septembre 29, 2000)
+      - '(?i)n[eé]e?\s+le\s+((?:janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)\s+(?:0?[1-9]|[12]\d|3[01])(?:e|er)?,?\s+(?:19|20)?\d{2})'
+      # né(e) le mois/YY (juin/47)
+      - '(?i)n[eé]e?\s+le\s+((?:janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)[/\-]\d{2,4})'
+      # né(e) le YYYY-MM-DDThh:mm:ss (ISO timestamp)
+      - '(?i)n[eé]e?\s+le\s+((?:19|20)\d{2}[-/](?:0?[1-9]|1[0-2])[-/](?:0?[1-9]|[12]\d|3[01])(?:T\d{2}:\d{2}:\d{2})?)'
+      # Date de naissance: DD/MM/YYYY ou DD/MM/YY
+      - '(?i)date\s+de\s+naissance\s*:\s*((?:0?[1-9]|[12]\d|3[01])[/\-.](?:0?[1-9]|1[0-2])[/\-.]\d{2,4})'
+      # Date de naissance: 3 janvier 2020 / 23e avril 1948
+      - '(?i)date\s+de\s+naissance\s*:\s*((?:0?[1-9]|[12]\d|3[01])(?:e|er)?\s+(?:janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)(?:\s+(?:19|20)?\d{2})?)'
+      # Date de naissance: mois JJ, YYYY (septembre 29, 2000)
+      - '(?i)date\s+de\s+naissance\s*:\s*((?:janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)\s+(?:0?[1-9]|[12]\d|3[01])(?:e|er)?,?\s+(?:19|20)?\d{2})'
+      # Date de naissance: mois/YY (juin/47)
+      - '(?i)date\s+de\s+naissance\s*:\s*((?:janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)[/\-]\d{2,4})'
+      # Date de naissance: YYYY-MM-DDThh:mm:ss
+      - '(?i)date\s+de\s+naissance\s*:\s*((?:19|20)\d{2}[-/](?:0?[1-9]|1[0-2])[-/](?:0?[1-9]|[12]\d|3[01])(?:T\d{2}:\d{2}:\d{2})?)'
 
 DATE:
   standard:
@@ -49,14 +65,18 @@ DATE:
       - '\b(?:0?[1-9]|[12]\d|3[01])[/\-.](?:0?[1-9]|1[0-2])[/\-.](?:19|20)\d{2}\b'
       # DD/MM/YY
       - '\b(?:0?[1-9]|[12]\d|3[01])[/\-.](?:0?[1-9]|1[0-2])[/\-.]\d{2}\b'
-      # 8 juillet 2020
-      - '(?i)\b(?:0?[1-9]|[12]\d|3[01])\s+(?:er\s+)?(?:janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)\s+(?:19|20)\d{2}\b'
+      # 8 juillet 2020 / 23e avril 1948
+      - '(?i)\b(?:0?[1-9]|[12]\d|3[01])(?:e|er)?\s+(?:janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)\s+(?:19|20)?\d{2,4}\b'
       # 20 mars
-      - '(?i)\b(?:0?[1-9]|[12]\d|3[01])\s+(?:er\s+)?(?:janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)\b'
+      - '(?i)\b(?:0?[1-9]|[12]\d|3[01])(?:e|er)?\s+(?:janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)\b'
+      # septembre 29, 2000 / mars 11e, 1965
+      - '(?i)\b(?:janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)\s+(?:0?[1-9]|[12]\d|3[01])(?:e|er)?,?\s+(?:19|20)?\d{2,4}\b'
       # février 2020
       - '(?i)\b(?:janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)\s+(?:19|20)\d{2}\b'
-      # YYYY-MM-DD (ISO)
-      - '\b(?:19|20)\d{2}[-/](?:0?[1-9]|1[0-2])[-/](?:0?[1-9]|[12]\d|3[01])\b'
+      # mois/YY (juin/47, novembre/70)
+      - '(?i)\b(?:janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)[/\-]\d{2,4}\b'
+      # YYYY-MM-DD (ISO) with optional Thh:mm:ss
+      - '\b(?:19|20)\d{2}[-/](?:0?[1-9]|1[0-2])[-/](?:0?[1-9]|[12]\d|3[01])(?:T\d{2}:\d{2}:\d{2})?\b'
 
 ADRESSE:
   standard:
