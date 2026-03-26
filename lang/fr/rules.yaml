@@ -1,7 +1,7 @@
 whitelist_files:
   - whitelist.txt
 
-NOM:
+PERSON:
   standard:
     patterns:
       # Titre + initiales optionnelles + nom (capture tout après le titre)
@@ -17,30 +17,50 @@ NOM:
       # Initiale + Titlecase (J. Jean) - min 4 lettres pour le mot
       - '\b\p{Lu}\.\s+\p{Lu}\p{Ll}{3,}\b'
 
-TELEPHONE:
+PHONE:
   standard:
     patterns:
       # +33 (0)6 12 34 56 78 / +33(0)612345678
       - '(?:(?:\+|00)\s?33\s?[\.\-]?\s?\(0\)\s?[1-9][\s.\-]?(?:[\s.\-]?\d{2}){4})'
       # +33 6 12 34 56 78 / 0033612345678 / 06 12 34 56 78 / 0612345678
       - '(?:(?:\+|00)\s?33\s?[\.\-]?|0)[1-9](?:[\s.\-]?\d{2}){4}'
+  paranoid:
+    patterns:
+      # +XX international: 8-15 chiffres avec séparateurs variés
+      - '\+\d{1,3}[\s.\-]?\d[\s.\-\d]{6,14}\d'
 
 EMAIL:
   standard:
     patterns:
-      - '(?i)[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}'
+      - '(?i)[a-zA-Z0-9_%+\-][a-zA-Z0-9._%+\-]*@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}'
   paranoid:
     patterns:
       # Tout ce qui contient un @
       - '\S+@\S+'
 
-BIRTHDATE:
+BIRTH_DATE:
   standard:
     patterns:
       # né(e) le DD/MM/YYYY ou DD/MM/YY ou DD.MM.YY
-      - '(?i)n[eé]e?\s+le\s+(?:0?[1-9]|[12]\d|3[01])[/\-.](?:0?[1-9]|1[0-2])[/\-.]\d{2,4}'
-      # né(e) le 3 janvier 2020 / né(e) le 1er mars 1990
-      - '(?i)n[eé]e?\s+le\s+(?:0?[1-9]|[12]\d|3[01])(?:\s*er)?\s+(?:janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)(?:\s+(?:19|20)?\d{2})?'
+      - '(?i)n[eé]e?\s+le\s+((?:0?[1-9]|[12]\d|3[01])[/\-.](?:0?[1-9]|1[0-2])[/\-.]\d{2,4})'
+      # né(e) le 3 janvier 2020 / né(e) le 23e avril 1948
+      - '(?i)n[eé]e?\s+le\s+((?:0?[1-9]|[12]\d|3[01])(?:e|er)?\s+(?:janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)(?:\s+(?:19|20)?\d{2})?)'
+      # né(e) le mois JJ, YYYY (septembre 29, 2000)
+      - '(?i)n[eé]e?\s+le\s+((?:janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)\s+(?:0?[1-9]|[12]\d|3[01])(?:e|er)?,?\s+(?:19|20)?\d{2})'
+      # né(e) le mois/YY (juin/47)
+      - '(?i)n[eé]e?\s+le\s+((?:janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)[/\-]\d{2,4})'
+      # né(e) le YYYY-MM-DDThh:mm:ss (ISO timestamp)
+      - '(?i)n[eé]e?\s+le\s+((?:19|20)\d{2}[-/](?:0?[1-9]|1[0-2])[-/](?:0?[1-9]|[12]\d|3[01])(?:T\d{2}:\d{2}:\d{2})?)'
+      # Date de naissance: DD/MM/YYYY ou DD/MM/YY
+      - '(?i)date\s+de\s+naissance\s*:\s*((?:0?[1-9]|[12]\d|3[01])[/\-.](?:0?[1-9]|1[0-2])[/\-.]\d{2,4})'
+      # Date de naissance: 3 janvier 2020 / 23e avril 1948
+      - '(?i)date\s+de\s+naissance\s*:\s*((?:0?[1-9]|[12]\d|3[01])(?:e|er)?\s+(?:janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)(?:\s+(?:19|20)?\d{2})?)'
+      # Date de naissance: mois JJ, YYYY (septembre 29, 2000)
+      - '(?i)date\s+de\s+naissance\s*:\s*((?:janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)\s+(?:0?[1-9]|[12]\d|3[01])(?:e|er)?,?\s+(?:19|20)?\d{2})'
+      # Date de naissance: mois/YY (juin/47)
+      - '(?i)date\s+de\s+naissance\s*:\s*((?:janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)[/\-]\d{2,4})'
+      # Date de naissance: YYYY-MM-DDThh:mm:ss
+      - '(?i)date\s+de\s+naissance\s*:\s*((?:19|20)\d{2}[-/](?:0?[1-9]|1[0-2])[-/](?:0?[1-9]|[12]\d|3[01])(?:T\d{2}:\d{2}:\d{2})?)'
 
 DATE:
   standard:
@@ -49,16 +69,20 @@ DATE:
       - '\b(?:0?[1-9]|[12]\d|3[01])[/\-.](?:0?[1-9]|1[0-2])[/\-.](?:19|20)\d{2}\b'
       # DD/MM/YY
       - '\b(?:0?[1-9]|[12]\d|3[01])[/\-.](?:0?[1-9]|1[0-2])[/\-.]\d{2}\b'
-      # 8 juillet 2020
-      - '(?i)\b(?:0?[1-9]|[12]\d|3[01])\s+(?:er\s+)?(?:janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)\s+(?:19|20)\d{2}\b'
+      # 8 juillet 2020 / 23e avril 1948
+      - '(?i)\b(?:0?[1-9]|[12]\d|3[01])(?:e|er)?\s+(?:janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)\s+(?:19|20)?\d{2,4}\b'
       # 20 mars
-      - '(?i)\b(?:0?[1-9]|[12]\d|3[01])\s+(?:er\s+)?(?:janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)\b'
+      - '(?i)\b(?:0?[1-9]|[12]\d|3[01])(?:e|er)?\s+(?:janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)\b'
+      # septembre 29, 2000 / mars 11e, 1965
+      - '(?i)\b(?:janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)\s+(?:0?[1-9]|[12]\d|3[01])(?:e|er)?,?\s+(?:19|20)?\d{2,4}\b'
       # février 2020
       - '(?i)\b(?:janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)\s+(?:19|20)\d{2}\b'
-      # YYYY-MM-DD (ISO)
-      - '\b(?:19|20)\d{2}[-/](?:0?[1-9]|1[0-2])[-/](?:0?[1-9]|[12]\d|3[01])\b'
+      # mois/YY (juin/47, novembre/70)
+      - '(?i)\b(?:janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)[/\-]\d{2,4}\b'
+      # YYYY-MM-DD (ISO) with optional Thh:mm:ss
+      - '\b(?:19|20)\d{2}[-/](?:0?[1-9]|1[0-2])[-/](?:0?[1-9]|[12]\d|3[01])(?:T\d{2}:\d{2}:\d{2})?\b'
 
-ADRESSE:
+LOCATION:
   standard:
     patterns:
       # Numéro + bis/ter + type de voie + nom + code postal + ville
@@ -67,14 +91,19 @@ ADRESSE:
       - '(?i)\d{1,4}\s*,?\s*(?:bis|ter|quater)?\s*,?\s*(?:rue|avenue|av\.?|boulevard|bd\.?|all[eé]e|impasse|chemin|route|place|cours|passage|voie|quai|square|r[eé]sidence)\s+[a-zA-ZÀ-ÿ''\-]+(?:\s+[a-zA-ZÀ-ÿ''\-]+){0,3}'
     blacklist_files:
       - cities.txt
+      - regions.txt
+  paranoid:
+    patterns:
+      # Type de voie + 1-4 mots (sans numéro)
+      - '(?i)\b(?:rue|avenue|av\.?|boulevard|bd\.?|all[eé]e|impasse|chemin|route|place|cours|passage|voie|quai|square|r[eé]sidence)\s+[a-zA-ZÀ-ÿ''\-]+(?:\s+[a-zA-ZÀ-ÿ''\-]+){0,3}'
 
-CODE_POSTAL:
+ZIP_CODE:
   standard:
     patterns:
       # Code postal + ville
       - '\b\d{5}\s+[A-ZÀ-Þ][A-ZÀ-Þa-zà-ÿ\-]+(?:\s+[A-ZÀ-Þ][A-ZÀ-Þa-zà-ÿ\-]+){0,2}\b'
 
-NIR:
+SSN:
   standard:
     patterns:
       # NIR compact
@@ -86,6 +115,12 @@ IBAN:
   standard:
     patterns:
       - '\bFR\d{2}[\s]?\d{4}[\s]?\d{4}[\s]?\d{4}[\s]?\d{4}[\s]?\d{4}[\s]?\d{3}\b'
+
+URL:
+  paranoid:
+    patterns:
+      # http(s)://...
+      - '(?i)https?://[^\s<>\"''\)\]]{3,}'
 
 NUMBER:
   paranoid:

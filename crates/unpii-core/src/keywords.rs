@@ -114,8 +114,8 @@ mod tests {
     #[test]
     fn test_keyword_matching() {
         let words = vec![
-            ("Jean".to_string(), PiiCategory::Nom),
-            ("Marie".to_string(), PiiCategory::Nom),
+            ("Jean".to_string(), PiiCategory::Person),
+            ("Marie".to_string(), PiiCategory::Person),
         ];
         let ks = KeywordSet::build(words).unwrap();
         let spans = ks.find_spans("Bonjour Jean et Marie");
@@ -124,7 +124,7 @@ mod tests {
 
     #[test]
     fn test_word_boundary() {
-        let words = vec![("Jean".to_string(), PiiCategory::Nom)];
+        let words = vec![("Jean".to_string(), PiiCategory::Person)];
         let ks = KeywordSet::build(words).unwrap();
         // "Jeanne" should NOT match "Jean" due to word boundary
         let spans = ks.find_spans("Bonjour Jeanne");
@@ -148,7 +148,7 @@ mod tests {
 
     #[test]
     fn test_case_insensitive() {
-        let words = vec![("jean".to_string(), PiiCategory::Nom)];
+        let words = vec![("jean".to_string(), PiiCategory::Person)];
         let ks = KeywordSet::build(words).unwrap();
         let spans = ks.find_spans("Bonjour JEAN et jean");
         assert_eq!(spans.len(), 2);

@@ -10,6 +10,7 @@ use std::sync::OnceLock;
 const FR_RULES: &str = include_str!("../../../lang/fr/rules.yaml");
 const FR_NAMES: &str = include_str!("../../../lang/fr/names.txt");
 const FR_CITIES: &str = include_str!("../../../lang/fr/cities.txt");
+const FR_REGIONS: &str = include_str!("../../../lang/fr/regions.txt");
 const FR_WHITELIST: &str = include_str!("../../../lang/fr/whitelist.txt");
 
 /// The compiled anonymization engine. Thread-safe, immutable after init.
@@ -167,6 +168,7 @@ fn resolve_files_fr() -> std::collections::HashMap<&'static str, &'static str> {
     let mut m = std::collections::HashMap::new();
     m.insert("names.txt", FR_NAMES);
     m.insert("cities.txt", FR_CITIES);
+    m.insert("regions.txt", FR_REGIONS);
     m.insert("whitelist.txt", FR_WHITELIST);
     m
 }

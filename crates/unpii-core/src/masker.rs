@@ -45,14 +45,14 @@ mod tests {
 
     #[test]
     fn test_placeholder_mask() {
-        let spans = vec![Span::new(0, 4, PiiCategory::Nom)];
+        let spans = vec![Span::new(0, 4, PiiCategory::Person)];
         let result = apply_mask("Jean Dupont", &spans, &MaskMode::Placeholder);
-        assert_eq!(result, "<NOM> Dupont");
+        assert_eq!(result, "<PERSON> Dupont");
     }
 
     #[test]
     fn test_stars_mask() {
-        let spans = vec![Span::new(0, 4, PiiCategory::Nom)];
+        let spans = vec![Span::new(0, 4, PiiCategory::Person)];
         let result = apply_mask("Jean Dupont", &spans, &MaskMode::Stars);
         assert_eq!(result, "***** Dupont");
     }
@@ -60,10 +60,10 @@ mod tests {
     #[test]
     fn test_multiple_spans() {
         let spans = vec![
-            Span::new(0, 4, PiiCategory::Nom),
-            Span::new(5, 11, PiiCategory::Nom),
+            Span::new(0, 4, PiiCategory::Person),
+            Span::new(5, 11, PiiCategory::Person),
         ];
         let result = apply_mask("Jean Dupont est ici", &spans, &MaskMode::Placeholder);
-        assert_eq!(result, "<NOM> <NOM> est ici");
+        assert_eq!(result, "<PERSON> <PERSON> est ici");
     }
 }

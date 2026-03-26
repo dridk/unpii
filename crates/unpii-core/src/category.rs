@@ -3,13 +3,14 @@ use std::fmt;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum PiiCategory {
-    Nom,
+    Person,
     Email,
     Date,
-    Adresse,
-    Telephone,
-    CodePostal,
-    Nir,
+    BirthDate,
+    Location,
+    Phone,
+    ZipCode,
+    Ssn,
     Iban,
     Custom(String),
 }
@@ -17,13 +18,14 @@ pub enum PiiCategory {
 impl PiiCategory {
     pub fn placeholder(&self) -> &str {
         match self {
-            PiiCategory::Nom => "<NOM>",
+            PiiCategory::Person => "<PERSON>",
             PiiCategory::Email => "<EMAIL>",
             PiiCategory::Date => "<DATE>",
-            PiiCategory::Adresse => "<ADRESSE>",
-            PiiCategory::Telephone => "<TELEPHONE>",
-            PiiCategory::CodePostal => "<CODE_POSTAL>",
-            PiiCategory::Nir => "<NIR>",
+            PiiCategory::BirthDate => "<BIRTH_DATE>",
+            PiiCategory::Location => "<LOCATION>",
+            PiiCategory::Phone => "<PHONE>",
+            PiiCategory::ZipCode => "<ZIP_CODE>",
+            PiiCategory::Ssn => "<SSN>",
             PiiCategory::Iban => "<IBAN>",
             PiiCategory::Custom(s) => {
                 // We leak a string here but it's only called for static labels
@@ -33,15 +35,33 @@ impl PiiCategory {
         }
     }
 
+    /// Priority for overlap resolution: lower = higher priority.
+    /// More specific categories (BIRTHDATE) beat generic ones (DATE).
+    pub fn priority(&self) -> u8 {
+        match self {
+            PiiCategory::BirthDate => 0,
+            PiiCategory::Ssn => 1,
+            PiiCategory::Iban => 1,
+            PiiCategory::Email => 1,
+            PiiCategory::Phone => 1,
+            PiiCategory::Person => 2,
+            PiiCategory::Location => 2,
+            PiiCategory::ZipCode => 2,
+            PiiCategory::Date => 3,
+            PiiCategory::Custom(_) => 4,
+        }
+    }
+
     pub fn from_label(label: &str) -> PiiCategory {
         match label.to_uppercase().as_str() {
-            "NOM" => PiiCategory::Nom,
+            "PERSON" => PiiCategory::Person,
             "EMAIL" => PiiCategory::Email,
             "DATE" => PiiCategory::Date,
-            "ADRESSE" => PiiCategory::Adresse,
-            "TELEPHONE" => PiiCategory::Telephone,
-            "CODE_POSTAL" => PiiCategory::CodePostal,
-            "NIR" => PiiCategory::Nir,
+            "BIRTH_DATE" => PiiCategory::BirthDate,
+            "LOCATION" => PiiCategory::Location,
+            "PHONE" => PiiCategory::Phone,
+            "ZIP_CODE" => PiiCategory::ZipCode,
+            "SSN" => PiiCategory::Ssn,
             "IBAN" => PiiCategory::Iban,
             other => PiiCategory::Custom(other.to_string()),
         }
