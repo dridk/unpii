@@ -3,13 +3,13 @@
 ## Project Overview
 
 High-performance Python library for anonymizing French medical text documents at scale (millions of docs).
-Rust core (PyO3/maturin) with native Polars expression plugin. Rules externalized in YAML.
+Rust core (PyO3/maturin) with rayon parallelism. Rules externalized in YAML.
 
 ## Architecture
 
 - `crates/unpii-core/` — Pure Rust library (no Python/Polars dependency)
-- `crates/unpii-polars/` — cdylib: PyO3 bindings + Polars expression plugin (`pyo3-polars`)
-- `python/unpii/` — Python package (namespace registration, re-exports)
+- `crates/unpii-polars/` — cdylib: PyO3 bindings (`mask`, `find_spans`, `mask_batch`)
+- `python/unpii/` — Python package (re-exports, `mask_series`/`mask_dataframe` wrappers)
 - `lang/fr/` — French rules (rules.yaml, names.txt, cities.txt, whitelist.txt)
 - `tests/python/` — pytest test suite
 
@@ -38,10 +38,10 @@ uv run pytest tests/python/ -v
 - `OnceLock<Engine>` singleton: YAML parsed, regex compiled, Aho-Corasick built once at first call, `&'static` thereafter.
 - One language loaded at a time (default: fr).
 
-### Polars Integration
-- Real Polars expression plugin via `#[polars_expr]` + `pyo3-polars`, NOT `map_batches`.
-- Python namespace: `pl.col("text").unpii.mask()` via `@pl.api.register_expr_namespace("unpii")`.
-- Polars expression plugins receive the full Series; rayon is used inside the plugin for intra-expression parallelism.
+### DataFrame Integration
+- No Polars expression plugin. Instead: `anonymize_batch` (Rust/PyO3) processes `Vec<Option<String>>` with rayon parallelism.
+- Python wrappers `anonymize_series` and `anonymize_dataframe` convert Polars Series to lists, call `anonymize_batch`, wrap results back.
+- Polars is an optional dependency — `anonymize` and `anonymize_batch` work without it.
 
 ### Masking Pipeline
 1. Regex detection (per group, per mode)
@@ -56,20 +56,20 @@ uv run pytest tests/python/ -v
 ```python
 import unpii
 
-unpii.mask("Dr Martin au 06 12 34 56 78")
-unpii.mask(text, mask="stars", mode="paranoid", ignore_groups=["TELEPHONE"])
+unpii.anonymize("Dr Martin au 06 12 34 56 78")
+unpii.anonymize(text, style="stars", mode="paranoid", ignore_groups=["TELEPHONE"])
+unpii.anonymize(text, mask=["Dupont"])  # custom words → <PII>
 unpii.find_spans(text)  # dry-run, returns list[Span]
 
-# Polars
-import polars as pl
-df.with_columns(pl.col("text").unpii.mask())
-df.with_columns(pl.col("text").unpii.mask(mask="stars", ignore_groups=["TELEPHONE"]))
+# DataFrame
+df = unpii.anonymize_dataframe(df, "text")
+df = unpii.anonymize_dataframe(df, "text", mask_from_columns=["nom", "ville"], mask=["Dupont"])
 ```
 
 ## Dependencies
 
 **unpii-core**: `regex`, `aho-corasick`, `serde`, `serde_yaml`
-**unpii-polars**: `unpii-core`, `pyo3`, `pyo3-polars`, `polars`, `serde`
+**unpii-polars**: `unpii-core`, `pyo3`, `rayon`
 
 ## Rust Regex Crate Limitations
 - No backreferences or variable-length lookbehinds.

@@ -26,7 +26,7 @@ pub struct MaskOptions {
     pub mode: MaskMode,
     pub paranoid: bool,
     pub ignore_groups: HashSet<PiiCategory>,
-    pub extra: Vec<String>,
+    pub mask: Vec<String>,
 }
 
 impl Default for MaskOptions {
@@ -35,7 +35,7 @@ impl Default for MaskOptions {
             mode: MaskMode::Placeholder,
             paranoid: false,
             ignore_groups: HashSet::new(),
-            extra: Vec::new(),
+            mask: Vec::new(),
         }
     }
 }
@@ -108,9 +108,9 @@ impl Engine {
         }
 
         // 3. Extra words (case-insensitive, word boundary)
-        if !opts.extra.is_empty() {
+        if !opts.mask.is_empty() {
             let text_lower = text.to_lowercase();
-            for word in &opts.extra {
+            for word in &opts.mask {
                 let word_lower = word.to_lowercase();
                 if word_lower.is_empty() {
                     continue;
@@ -128,7 +128,7 @@ impl Engine {
                         spans.push(Span::new(
                             abs_start,
                             abs_end,
-                            PiiCategory::Custom("EXTRA".to_string()),
+                            PiiCategory::Custom("PII".to_string()),
                         ));
                     }
                     start = abs_end;
