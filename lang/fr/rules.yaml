@@ -116,6 +116,12 @@ IBAN:
     patterns:
       - '\bFR\d{2}[\s]?\d{4}[\s]?\d{4}[\s]?\d{4}[\s]?\d{4}[\s]?\d{4}[\s]?\d{3}\b'
 
+URL:
+  paranoid:
+    patterns:
+      # http(s)://...
+      - '(?i)https?://[^\s<>\"''\)\]]{3,}'
+
 NUMBER:
   paranoid:
     patterns:

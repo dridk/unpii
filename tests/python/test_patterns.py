@@ -35,6 +35,24 @@ class TestEmail:
         assert "EMAIL" in categories("foo@bar", mode="paranoid")
 
 
+# ── URL ──────────────────────────────────────────────────────────────────────
+
+
+class TestUrl:
+    def test_https(self):
+        assert spans("voir https://example.com/page fin", mode="paranoid") == [
+            ("https://example.com/page", "URL")
+        ]
+
+    def test_http(self):
+        assert spans("lien http://test.fr/doc.pdf ici", mode="paranoid") == [
+            ("http://test.fr/doc.pdf", "URL")
+        ]
+
+    def test_not_in_standard(self):
+        assert spans("voir https://example.com fin") == []
+
+
 # ── LOCATION ─────────────────────────────────────────────────────────────────
 
 
