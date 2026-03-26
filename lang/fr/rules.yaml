@@ -38,7 +38,7 @@ EMAIL:
       # Tout ce qui contient un @
       - '\S+@\S+'
 
-BIRTHDATE:
+BIRTH_DATE:
   standard:
     patterns:
       # né(e) le DD/MM/YYYY ou DD/MM/YY ou DD.MM.YY

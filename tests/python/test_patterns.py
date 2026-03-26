@@ -134,7 +134,7 @@ class TestBirthdate:
     def test_nee_le_dd_mm_yyyy(self):
         result = spans("née le 12/03/1980 ok")
         assert result[0][0] == "12/03/1980"
-        assert result[0][1] in ("BIRTHDATE", "DATE")
+        assert result[0][1] in ("BIRTH_DATE", "DATE")
 
     def test_ne_le_literal_month(self):
         result = spans("né le 3 janvier 2020 fin")

@@ -6,7 +6,7 @@ pub enum PiiCategory {
     Person,
     Email,
     Date,
-    Birthdate,
+    BirthDate,
     Location,
     Phone,
     ZipCode,
@@ -21,7 +21,7 @@ impl PiiCategory {
             PiiCategory::Person => "<PERSON>",
             PiiCategory::Email => "<EMAIL>",
             PiiCategory::Date => "<DATE>",
-            PiiCategory::Birthdate => "<BIRTHDATE>",
+            PiiCategory::BirthDate => "<BIRTH_DATE>",
             PiiCategory::Location => "<LOCATION>",
             PiiCategory::Phone => "<PHONE>",
             PiiCategory::ZipCode => "<ZIP_CODE>",
@@ -39,7 +39,7 @@ impl PiiCategory {
     /// More specific categories (BIRTHDATE) beat generic ones (DATE).
     pub fn priority(&self) -> u8 {
         match self {
-            PiiCategory::Birthdate => 0,
+            PiiCategory::BirthDate => 0,
             PiiCategory::Ssn => 1,
             PiiCategory::Iban => 1,
             PiiCategory::Email => 1,
@@ -57,7 +57,7 @@ impl PiiCategory {
             "PERSON" => PiiCategory::Person,
             "EMAIL" => PiiCategory::Email,
             "DATE" => PiiCategory::Date,
-            "BIRTHDATE" => PiiCategory::Birthdate,
+            "BIRTH_DATE" => PiiCategory::BirthDate,
             "LOCATION" => PiiCategory::Location,
             "PHONE" => PiiCategory::Phone,
             "ZIP_CODE" => PiiCategory::ZipCode,
