@@ -35,6 +35,27 @@ class TestEmail:
         assert "EMAIL" in categories("foo@bar", mode="paranoid")
 
 
+# ── ADRESSE ──────────────────────────────────────────────────────────────────
+
+
+class TestAdresse:
+    def test_standard_with_number(self):
+        assert spans("12 rue de la Paix") == [("12 rue de la Paix", "ADRESSE")]
+
+    def test_paranoid_without_number(self):
+        assert spans("Rue Perronnière", mode="paranoid") == [("Rue Perronnière", "ADRESSE")]
+
+    def test_paranoid_chemin(self):
+        assert spans("Chemin de Piscop", mode="paranoid") == [("Chemin de Piscop", "ADRESSE")]
+
+    def test_paranoid_boulevard(self):
+        assert spans("Boulevard Saint-Germain", mode="paranoid") == [("Boulevard Saint-Germain", "ADRESSE")]
+
+    def test_no_number_not_in_standard(self):
+        """Without a number, should not match in standard mode."""
+        assert spans("Rue Perronnière") == []
+
+
 # ── TELEPHONE ────────────────────────────────────────────────────────────────
 
 
