@@ -2068,7 +2068,7 @@ checksum = "7264e107f553ccae879d21fbea1d6724ac785e8c3bfc762137959b5802826ef3"
 
 [[package]]
 name = "unpii-core"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "aho-corasick",
  "regex",
@@ -2078,7 +2078,7 @@ dependencies = [
 
 [[package]]
 name = "unpii-polars"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "polars",
  "polars-arrow",
