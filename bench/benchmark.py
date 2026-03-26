@@ -242,24 +242,33 @@ def main():
         print(f"{'Throughput':<20} {unpii_result.throughput:>10.0f}/s {eds_result.throughput:>10.0f}/s")
         print()
 
-        # Leaked side-by-side per category
+        # Per-category side-by-side
         all_cats = sorted(
             set(unpii_result.per_category.keys()) | set(eds_result.per_category.keys())
         )
-        header2 = f"{'Leaked by cat':<14} {'Count':>6} {'unpii':>8} {'eds-pseudo':>12}"
+        header2 = f"{'Category':<14} {'Count':>6}  {'Prec':>6} {'Rec':>6} {'Leak':>5}  {'Prec':>6} {'Rec':>6} {'Leak':>5}"
+        print(f"{'':20s} {'── unpii ──':>19}  {'── eds-pseudo ──':>19}")
         print(header2)
         print("-" * len(header2))
         u_total, e_total = 0, 0
         for cat in all_cats:
             um = unpii_result.per_category.get(cat, MatchResult())
+            em = eds_result.per_category.get(cat, MatchResult())
             count = um.tp + um.fn
             u_leaks = sum(1 for l in unpii_result.leaks if l["category"] == cat)
             e_leaks = sum(1 for l in eds_result.leaks if l["category"] == cat)
             u_total += u_leaks
             e_total += e_leaks
-            print(f"{cat:<14} {count:>6} {u_leaks:>8} {e_leaks:>12}")
+            print(
+                f"{cat:<14} {count:>6}  {um.precision:>5.0%} {um.recall:>6.0%} {u_leaks:>5}"
+                f"  {em.precision:>5.0%} {em.recall:>6.0%} {e_leaks:>5}"
+            )
+        u_micro, e_micro = unpii_result.micro, eds_result.micro
         print("-" * len(header2))
-        print(f"{'TOTAL':<14} {unpii_result.total_pii:>6} {u_total:>8} {e_total:>12}")
+        print(
+            f"{'TOTAL':<14} {unpii_result.total_pii:>6}  {u_micro.precision:>5.0%} {u_micro.recall:>6.0%} {u_total:>5}"
+            f"  {e_micro.precision:>5.0%} {e_micro.recall:>6.0%} {e_total:>5}"
+        )
         print()
 
     # ── Parallel throughput benchmark ─────────────────────────────────────
