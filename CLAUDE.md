@@ -8,7 +8,7 @@ Rust core (PyO3/maturin) with rayon parallelism. Rules externalized in YAML.
 ## Architecture
 
 - `crates/unpii-core/` — Pure Rust library (no Python/Polars dependency)
-- `crates/unpii-polars/` — cdylib: PyO3 bindings (`mask`, `find_spans`, `mask_batch`)
+- `crates/unpii-python/` — cdylib: PyO3 bindings (`mask`, `find_spans`, `mask_batch`)
 - `python/unpii/` — Python package (re-exports, `mask_series`/`mask_dataframe` wrappers)
 - `lang/fr/` — French rules (rules.yaml, names.txt, cities.txt, whitelist.txt)
 - `tests/python/` — pytest test suite
@@ -69,7 +69,7 @@ df = unpii.anonymize_dataframe(df, "text", mask_from_columns=["nom", "ville"], m
 ## Dependencies
 
 **unpii-core**: `regex`, `aho-corasick`, `serde`, `serde_yaml`
-**unpii-polars**: `unpii-core`, `pyo3`, `rayon`
+**unpii-python**: `unpii-core`, `pyo3`, `rayon`
 
 ## Rust Regex Crate Limitations
 - No backreferences or variable-length lookbehinds.

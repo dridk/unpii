@@ -5,3 +5,6 @@ build:
 
 test: build
 	uv run pytest tests/python/ -v
+
+publish:
+	uv run maturin publish 

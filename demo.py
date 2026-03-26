@@ -5,7 +5,7 @@ import readline
 while True:
 
     text = input("text: ")
-    print(unpii.mask(text, mode="standard"))
+    print(unpii.anonymize(text, mode="paranoid"))
 
 # print("\n=== Masquage étoiles ===")
 # print(unpii.mask(text, mask="stars"))
