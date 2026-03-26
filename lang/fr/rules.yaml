@@ -91,6 +91,7 @@ ADRESSE:
       - '(?i)\d{1,4}\s*,?\s*(?:bis|ter|quater)?\s*,?\s*(?:rue|avenue|av\.?|boulevard|bd\.?|all[eé]e|impasse|chemin|route|place|cours|passage|voie|quai|square|r[eé]sidence)\s+[a-zA-ZÀ-ÿ''\-]+(?:\s+[a-zA-ZÀ-ÿ''\-]+){0,3}'
     blacklist_files:
       - cities.txt
+      - regions.txt
 
 CODE_POSTAL:
   standard:
