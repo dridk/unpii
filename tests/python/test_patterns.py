@@ -35,6 +35,34 @@ class TestEmail:
         assert "EMAIL" in categories("foo@bar", mode="paranoid")
 
 
+# ── TELEPHONE ────────────────────────────────────────────────────────────────
+
+
+class TestTelephone:
+    def test_fr_standard(self):
+        assert spans("tel: 06 12 34 56 78") == [("06 12 34 56 78", "TELEPHONE")]
+
+    def test_fr_plus33(self):
+        assert spans("tel: +33 6 12 34 56 78") == [("+33 6 12 34 56 78", "TELEPHONE")]
+
+    def test_international_paranoid(self):
+        assert spans("+15-210.298-5684", mode="paranoid") == [("+15-210.298-5684", "TELEPHONE")]
+
+    def test_international_paranoid_2(self):
+        assert spans("call +87 56 422-8133 now", mode="paranoid") == [("+87 56 422-8133", "TELEPHONE")]
+
+    def test_international_paranoid_3(self):
+        assert spans("num +33 63.728-6394 fin", mode="paranoid") == [("+33 63.728-6394", "TELEPHONE")]
+
+    def test_short_no_match_paranoid(self):
+        """Too few digits should not match."""
+        assert spans("+3 123", mode="paranoid") == []
+
+    def test_international_not_in_standard(self):
+        """International format should not match in standard mode."""
+        assert spans("+87 56 422-8133") == []
+
+
 # ── DATE ─────────────────────────────────────────────────────────────────────
 
 
