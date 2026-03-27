@@ -26,7 +26,7 @@ uv run pytest tests/python/ -v
 
 ### Rules & Data
 - Rules in YAML (`lang/fr/rules.yaml`), keyword lists in plain text files — all embedded in binary via `include_str!()`, zero I/O at runtime.
-- Each group (NOM, TELEPHONE, EMAIL, DATE, ADRESSE, NIR, IBAN...) has `standard` and `paranoid` levels. Paranoid is a superset of standard.
+- Each group (PERSON, PHONE, EMAIL, DATE, BIRTH_DATE, LOCATION, ZIP_CODE, SSN, IBAN, URL, NUMBER) has `standard` and `paranoid` levels. Paranoid is a superset of standard.
 - Blacklist files (names.txt, cities.txt) are per-group. Whitelist (whitelist.txt) is global.
 
 ### Capture Convention
@@ -57,7 +57,7 @@ uv run pytest tests/python/ -v
 import unpii
 
 unpii.anonymize("Dr Martin au 06 12 34 56 78")
-unpii.anonymize(text, style="stars", mode="paranoid", ignore_groups=["TELEPHONE"])
+unpii.anonymize(text, style="stars", mode="paranoid", ignore_groups=["PHONE"])
 unpii.anonymize(text, mask=["Dupont"])  # custom words → <PII>
 unpii.find_spans(text)  # dry-run, returns list[Span]
 

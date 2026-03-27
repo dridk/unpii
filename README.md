@@ -22,7 +22,7 @@ text = "Dr Martin au 06 12 34 56 78, email: martin@chu-brest.fr"
 
 # Anonymize with placeholders (default)
 unpii.anonymize(text)
-# → "Dr <NOM> au <TELEPHONE>, email: <EMAIL>"
+# → "Dr <PERSON> au <PHONE>, email: <EMAIL>"
 
 # Anonymize with stars
 unpii.anonymize(text, style="stars")
@@ -36,14 +36,14 @@ Two detection levels: **standard** (reliable patterns) and **paranoid** (aggress
 ```python
 # Standard: titles, known patterns, blacklisted names
 unpii.anonymize("Dr Martin est ici")
-# → "Dr <NOM> est ici"
+# → "Dr <PERSON> est ici"
 
 unpii.anonymize("DUPONT Jean est ici")
 # → "DUPONT Jean est ici"  (not detected in standard)
 
 # Paranoid: also catches UPPERCASE Titlecase patterns, 5+ digit sequences, loose emails
 unpii.anonymize("DUPONT Jean est ici", mode="paranoid")
-# → "<NOM> est ici"
+# → "<PERSON> est ici"
 ```
 
 ## Custom Words to Mask
@@ -67,8 +67,8 @@ unpii.anonymize("Bonjour Bob", mask=["bob"])
 Skip specific categories:
 
 ```python
-unpii.anonymize("Dr Martin au 06 12 34 56 78", ignore_groups=["TELEPHONE"])
-# → "Dr <NOM> au 06 12 34 56 78"
+unpii.anonymize("Dr Martin au 06 12 34 56 78", ignore_groups=["PHONE"])
+# → "Dr <PERSON> au 06 12 34 56 78"
 ```
 
 ## Inspect Detected Spans
@@ -78,8 +78,8 @@ Dry-run mode to see what would be masked:
 ```python
 for span in unpii.find_spans("Dr Martin au 06 12 34 56 78"):
     print(span)
-# Span(start=3, end=9, category="NOM")
-# Span(start=13, end=27, category="TELEPHONE")
+# Span(start=3, end=9, category="PERSON")
+# Span(start=13, end=27, category="PHONE")
 ```
 
 ## DataFrame Integration
@@ -101,8 +101,8 @@ df = unpii.anonymize_dataframe(df, "text")
 # ┌─────────────────────────┐
 # │ text                    │
 # ╞═════════════════════════╡
-# │ Dr <NOM> au <TELEPHONE> │
-# │ Email: <EMAIL>          │
+# │ Dr <PERSON> au <PHONE>   │
+# │ Email: <EMAIL>           │
 # │ Maladie de Parkinson    │  ← protected by whitelist
 # └─────────────────────────┘
 
@@ -110,7 +110,7 @@ df = unpii.anonymize_dataframe(df, "text")
 df = unpii.anonymize_dataframe(df, "text", new_column="text_anonymized")
 
 # With options
-df = unpii.anonymize_dataframe(df, "text", style="stars", mode="paranoid", ignore_groups=["TELEPHONE"])
+df = unpii.anonymize_dataframe(df, "text", style="stars", mode="paranoid", ignore_groups=["PHONE"])
 ```
 
 ### Per-row words to mask (`mask_from_columns`)
@@ -170,7 +170,7 @@ Operates on plain Python lists (no Polars dependency):
 
 ```python
 results = unpii.anonymize_batch(["Dr Martin ici", "Email: a@b.fr"])
-# → ["Dr <NOM> ici", "Email: <EMAIL>"]
+# → ["Dr <PERSON> ici", "Email: <EMAIL>"]
 ```
 
 ## Threading
@@ -187,15 +187,16 @@ unpii.set_max_threads(0)     # Use all available cores (default)
 
 | Group | Placeholder | Standard | Paranoid |
 |-------|------------|----------|----------|
-| NOM | `<NOM>` | Titles + name, blacklist | UPPERCASE/Titlecase patterns, initials |
-| TELEPHONE | `<TELEPHONE>` | French phone numbers | — |
+| PERSON | `<PERSON>` | Titles + name, blacklist | UPPERCASE/Titlecase patterns, initials |
+| PHONE | `<PHONE>` | French phone numbers | International numbers |
 | EMAIL | `<EMAIL>` | Valid emails | Anything with `@` |
 | DATE | `<DATE>` | DD/MM/YYYY, literal months, ISO | — |
-| BIRTHDATE | `<BIRTHDATE>` | né(e) le + date | — |
-| ADRESSE | `<ADRESSE>` | Street number + type + name | — |
-| CODE_POSTAL | `<CODE_POSTAL>` | 5 digits + city name | — |
-| NIR | `<NIR>` | French social security number | — |
+| BIRTH_DATE | `<BIRTH_DATE>` | né(e) le + date, date de naissance + date | — |
+| LOCATION | `<LOCATION>` | Street number + type + name, blacklist (cities, regions) | Street type + name (no number) |
+| ZIP_CODE | `<ZIP_CODE>` | 5 digits + city name | — |
+| SSN | `<SSN>` | French social security number (NIR) | — |
 | IBAN | `<IBAN>` | French IBAN | — |
+| URL | `<URL>` | — | http(s) URLs |
 | NUMBER | `<NUMBER>` | — | 5+ consecutive digits |
 | PII | `<PII>` | Custom words passed via `mask=` | — |
 
