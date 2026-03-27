@@ -7,7 +7,7 @@ import time
 
 from datasets import load_dataset
 
-from metrics import EvalResult, MatchResult, check_leakage, match_spans, print_report
+from metrics import EvalResult, MatchResult, check_leakage, check_removal, match_spans, print_report
 
 # ── Dataset label → unified category mapping ─────────────────────────────────
 
@@ -143,6 +143,7 @@ class EdsPseudoMLEngine(_EdsBaseEngine):
 def evaluate(engine, docs: list[dict]) -> EvalResult:
     all_overlap: list[dict[str, MatchResult]] = []
     all_exact: list[dict[str, MatchResult]] = []
+    all_removal: list[dict[str, MatchResult]] = []
     all_leaks: list[list[dict]] = []
     total_pii = 0
     num_docs = len(docs)
@@ -165,6 +166,8 @@ def evaluate(engine, docs: list[dict]) -> EvalResult:
         all_exact.append(exact)
 
         masked = engine.anonymize(text)
+        removal = check_removal(masked, gt_spans)
+        all_removal.append(removal)
         leaks = check_leakage(masked, gt_spans, doc_id=i)
         all_leaks.append(leaks)
 
@@ -192,6 +195,13 @@ def evaluate(engine, docs: list[dict]) -> EvalResult:
             result.per_category_exact[cat].fp += m.fp
             result.per_category_exact[cat].fn += m.fn
 
+    for doc_removal in all_removal:
+        for cat, m in doc_removal.items():
+            if cat not in result.per_category_removal:
+                result.per_category_removal[cat] = MatchResult()
+            result.per_category_removal[cat].tp += m.tp
+            result.per_category_removal[cat].fn += m.fn
+
     for doc_leaks in all_leaks:
         result.leaks.extend(doc_leaks)
 
@@ -217,6 +227,8 @@ def print_side_by_side(results: dict[str, EvalResult], num_docs: int) -> None:
 
     micros_exact = {n: r.micro_exact for n, r in results.items()}
     print(f"{'Exact F1':<20}" + "".join(f"{micros_exact[n].f1:>{col_w}.2%}" for n in names))
+    micros_removal = {n: r.micro_removal for n, r in results.items()}
+    print(f"{'Removal Recall':<20}" + "".join(f"{micros_removal[n].recall:>{col_w}.2%}" for n in names))
     print(f"{'Leak rate':<20}" + "".join(f"{results[n].leak_rate:>{col_w}.2%}" for n in names))
     print(f"{'Throughput':<20}" + "".join(f"{results[n].throughput:>{col_w - 2}.0f}/s" for n in names))
     print()

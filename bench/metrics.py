@@ -32,6 +32,7 @@ class MatchResult:
 class EvalResult:
     per_category: dict[str, MatchResult] = field(default_factory=dict)
     per_category_exact: dict[str, MatchResult] = field(default_factory=dict)
+    per_category_removal: dict[str, MatchResult] = field(default_factory=dict)
     leaks: list[dict] = field(default_factory=list)
     total_pii: int = 0
     elapsed_sec: float = 0.0
@@ -50,6 +51,15 @@ class EvalResult:
     def micro_exact(self) -> MatchResult:
         r = MatchResult()
         for m in self.per_category_exact.values():
+            r.tp += m.tp
+            r.fp += m.fp
+            r.fn += m.fn
+        return r
+
+    @property
+    def micro_removal(self) -> MatchResult:
+        r = MatchResult()
+        for m in self.per_category_removal.values():
             r.tp += m.tp
             r.fp += m.fp
             r.fn += m.fn
@@ -136,6 +146,71 @@ def _normalize(s: str) -> str:
     return s.lower()
 
 
+def _is_word_removed(value: str, masked_text: str, category: str) -> bool:
+    """Check if a PII value has been removed from the masked text.
+
+    Returns True if the word is no longer present (i.e. successfully removed).
+    For PERSON category, checks each name component (>= 4 chars) individually.
+    For other categories, also tries normalized matching (no accents/punctuation).
+    """
+    masked_lower = masked_text.lower()
+
+    if category == "PERSON":
+        # For names, check each significant component
+        components = [
+            part for part in value.split()
+            if part.lower().rstrip(".") not in {
+                "dr", "docteur", "pr", "professeur", "m", "mme", "mr",
+            }
+            and len(part) >= 4
+        ]
+        if not components:
+            # Only titles/short parts — check the whole value
+            return value.lower() not in masked_lower
+        # All significant components must be absent
+        return all(part.lower() not in masked_lower for part in components)
+
+    # For non-PERSON categories: exact check then normalized check
+    if value.lower() in masked_lower:
+        return False
+
+    norm_val = _normalize(value)
+    if norm_val and len(norm_val) >= 4:
+        masked_normalized = _normalize(masked_text)
+        if norm_val in masked_normalized:
+            return False
+
+    return True
+
+
+def check_removal(
+    masked_text: str,
+    ground_truth_spans: list[dict],
+) -> dict[str, MatchResult]:
+    """Evaluate word removal: for each GT PII, is the value absent from the masked text?
+
+    Returns per-category MatchResult where:
+    - TP = PII value successfully removed from output
+    - FN = PII value still present in output (leaked)
+    (FP is not measured here — this is recall-only)
+    """
+    results: dict[str, MatchResult] = defaultdict(MatchResult)
+
+    for gt in ground_truth_spans:
+        value = gt["value"]
+        cat = gt["category"]
+
+        if len(value.strip()) < 3:
+            continue
+
+        if _is_word_removed(value, masked_text, cat):
+            results[cat].tp += 1
+        else:
+            results[cat].fn += 1
+
+    return dict(results)
+
+
 def check_leakage(
     masked_text: str,
     ground_truth_spans: list[dict],
@@ -186,27 +261,29 @@ def print_report(result: EvalResult, mode: str) -> None:
     print(f"{'=' * 78}\n")
 
     cats = sorted(result.per_category.keys())
-    header = f"{'Category':<14} {'Count':>6} {'Prec':>7} {'Rec':>7} {'F1':>7} {'ExactF1':>8} {'Leaked':>7}"
+    header = f"{'Category':<14} {'Count':>6} {'Prec':>7} {'Rec':>7} {'F1':>7} {'ExactF1':>8} {'Removal':>8} {'Leaked':>7}"
     print(header)
     print("-" * len(header))
 
     for cat in cats:
         m = result.per_category.get(cat, MatchResult())
         me = result.per_category_exact.get(cat, MatchResult())
+        mr = result.per_category_removal.get(cat, MatchResult())
         leak_count = sum(1 for l in result.leaks if l["category"] == cat)
         count = m.tp + m.fn
         print(
             f"{cat:<14} {count:>6} {m.precision:>7.2%} {m.recall:>7.2%} "
-            f"{m.f1:>7.2%} {me.f1:>8.2%} {leak_count:>7}"
+            f"{m.f1:>7.2%} {me.f1:>8.2%} {mr.recall:>8.2%} {leak_count:>7}"
         )
 
     micro = result.micro
     micro_exact = result.micro_exact
+    micro_removal = result.micro_removal
     total_leaks = len(result.leaks)
     print("-" * len(header))
     print(
         f"{'MICRO':<14} {micro.tp + micro.fn:>6} {micro.precision:>7.2%} {micro.recall:>7.2%} "
-        f"{micro.f1:>7.2%} {micro_exact.f1:>8.2%} {total_leaks:>7}"
+        f"{micro.f1:>7.2%} {micro_exact.f1:>8.2%} {micro_removal.recall:>8.2%} {total_leaks:>7}"
     )
 
     print(f"\nLeak rate: {total_leaks}/{result.total_pii} ({result.leak_rate:.2%})")
