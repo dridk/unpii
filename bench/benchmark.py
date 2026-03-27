@@ -84,19 +84,11 @@ class UnpiiEngine:
         return self._unpii.anonymize(text, mode=self.mode)
 
 
-class EdsPseudoEngine:
-    def __init__(self):
-        import edsnlp
-        self.nlp = edsnlp.blank("eds")
-        self.nlp.add_pipe("eds.normalizer")
-        self.nlp.add_pipe(
-            "eds_pseudo.simple_rules",
-            config={"pattern_keys": ["TEL", "MAIL", "SECU", "PERSON"]},
-        )
-        self.nlp.add_pipe("eds_pseudo.addresses")
-        self.nlp.add_pipe("eds_pseudo.dates")
-        self.nlp.add_pipe("eds_pseudo.context")
-        self.name = "eds-pseudo (rules)"
+class _EdsBaseEngine:
+    """Shared logic for eds-pseudo engines (rules and ML)."""
+
+    name: str
+    nlp: object  # edsnlp pipeline
 
     def find_spans(self, text: str) -> list[dict]:
         doc = self.nlp(text)
@@ -121,6 +113,29 @@ class EdsPseudoEngine:
                 continue
             result = result[: ent.start_char] + f"<{mapped}>" + result[ent.end_char :]
         return result
+
+
+class EdsPseudoEngine(_EdsBaseEngine):
+    def __init__(self):
+        import edsnlp
+        self.nlp = edsnlp.blank("eds")
+        self.nlp.add_pipe("eds.normalizer")
+        self.nlp.add_pipe(
+            "eds_pseudo.simple_rules",
+            config={"pattern_keys": ["TEL", "MAIL", "SECU", "PERSON"]},
+        )
+        self.nlp.add_pipe("eds_pseudo.addresses")
+        self.nlp.add_pipe("eds_pseudo.dates")
+        self.nlp.add_pipe("eds_pseudo.context")
+        self.name = "eds-pseudo (rules)"
+
+
+class EdsPseudoMLEngine(_EdsBaseEngine):
+    def __init__(self):
+        import edsnlp
+        print("  Loading AP-HP/eds-pseudo-public model ...")
+        self.nlp = edsnlp.load("AP-HP/eds-pseudo-public", auto_update=True)
+        self.name = "eds-pseudo (ML)"
 
 
 # ── Evaluation loop ──────────────────────────────────────────────────────────
@@ -183,12 +198,73 @@ def evaluate(engine, docs: list[dict]) -> EvalResult:
     return result
 
 
+def print_side_by_side(results: dict[str, EvalResult], num_docs: int) -> None:
+    names = list(results.keys())
+    col_w = 14
+
+    print(f"\n{'=' * 60}")
+    print(f"  Side-by-side comparison ({num_docs} docs)")
+    print(f"{'=' * 60}\n")
+
+    # ── Aggregate metrics ─────────────────────────────────────────────
+    header = f"{'Metric':<20}" + "".join(f"{n:>{col_w}}" for n in names)
+    print(header)
+    print("-" * len(header))
+
+    micros = {n: r.micro for n, r in results.items()}
+    for label, attr in [("Precision", "precision"), ("Recall", "recall"), ("F1", "f1")]:
+        print(f"{label:<20}" + "".join(f"{getattr(micros[n], attr):>{col_w}.2%}" for n in names))
+
+    micros_exact = {n: r.micro_exact for n, r in results.items()}
+    print(f"{'Exact F1':<20}" + "".join(f"{micros_exact[n].f1:>{col_w}.2%}" for n in names))
+    print(f"{'Leak rate':<20}" + "".join(f"{results[n].leak_rate:>{col_w}.2%}" for n in names))
+    print(f"{'Throughput':<20}" + "".join(f"{results[n].throughput:>{col_w - 2}.0f}/s" for n in names))
+    print()
+
+    # ── Per-category breakdown ────────────────────────────────────────
+    all_cats = sorted(set().union(*(r.per_category.keys() for r in results.values())))
+    cat_header = f"{'Category':<14} {'Count':>6}"
+    for n in names:
+        cat_header += f"  {'Prec':>6} {'Rec':>6} {'Leak':>5}"
+    label_row = f"{'':>21}"
+    for n in names:
+        label_row += f"  {'── ' + n + ' ──':>19}"
+    print(label_row)
+    print(cat_header)
+    print("-" * len(cat_header))
+
+    leak_totals = {n: 0 for n in names}
+    for cat in all_cats:
+        # Use first engine that has the category for count
+        first_m = next((results[n].per_category.get(cat) for n in names if cat in results[n].per_category), MatchResult())
+        count = first_m.tp + first_m.fn
+        row = f"{cat:<14} {count:>6}"
+        for n in names:
+            m = results[n].per_category.get(cat, MatchResult())
+            leaks = sum(1 for l in results[n].leaks if l["category"] == cat)
+            leak_totals[n] += leaks
+            row += f"  {m.precision:>5.0%} {m.recall:>6.0%} {leaks:>5}"
+        print(row)
+
+    print("-" * len(cat_header))
+    first_result = next(iter(results.values()))
+    row = f"{'TOTAL':<14} {first_result.total_pii:>6}"
+    for n in names:
+        micro = results[n].micro
+        row += f"  {micro.precision:>5.0%} {micro.recall:>6.0%} {leak_totals[n]:>5}"
+    print(row)
+    print()
+
+
 def main():
     parser = argparse.ArgumentParser(description="Benchmark unpii vs eds-pseudo")
     parser.add_argument("--mode", default="paranoid", choices=["standard", "paranoid"])
     parser.add_argument("--limit", type=int, default=None, help="Max French docs to evaluate")
-    parser.add_argument("--engine", default="all", choices=["all", "unpii", "eds-pseudo"],
-                        help="Which engine(s) to benchmark")
+    parser.add_argument(
+        "--engine", default="all",
+        choices=["all", "unpii", "eds-pseudo", "eds-pseudo-ml"],
+        help="Which engine(s) to benchmark",
+    )
     args = parser.parse_args()
 
     print("Loading dataset ai4privacy/pii-masking-300k ...")
@@ -203,88 +279,46 @@ def main():
     docs = list(ds_fr)
     print(f"Evaluating on {len(docs)} French documents\n")
 
-    unpii_result = None
-    eds_result = None
+    results: dict[str, EvalResult] = {}
+    engines_to_run: list[str] = (
+        ["unpii", "eds-pseudo", "eds-pseudo-ml"] if args.engine == "all"
+        else [args.engine]
+    )
 
     # ── unpii ─────────────────────────────────────────────────────────────
-    if args.engine in ("all", "unpii"):
+    if "unpii" in engines_to_run:
         print(f"Running unpii ({args.mode}) ...")
-        unpii_engine = UnpiiEngine(mode=args.mode)
-        unpii_result = evaluate(unpii_engine, docs)
-        print_report(unpii_result, unpii_engine.name)
+        engine = UnpiiEngine(mode=args.mode)
+        results["unpii"] = evaluate(engine, docs)
+        print_report(results["unpii"], engine.name)
 
-    # ── eds-pseudo ────────────────────────────────────────────────────────
-    if args.engine in ("all", "eds-pseudo"):
+    # ── eds-pseudo (rules) ────────────────────────────────────────────────
+    if "eds-pseudo" in engines_to_run:
         print("Running eds-pseudo (rules) ...")
-        eds_engine = EdsPseudoEngine()
-        eds_result = evaluate(eds_engine, docs)
-        print_report(eds_result, eds_engine.name)
+        engine = EdsPseudoEngine()
+        results["eds-pseudo"] = evaluate(engine, docs)
+        print_report(results["eds-pseudo"], engine.name)
+
+    # ── eds-pseudo (ML) ──────────────────────────────────────────────────
+    if "eds-pseudo-ml" in engines_to_run:
+        print("Running eds-pseudo (ML) ...")
+        engine = EdsPseudoMLEngine()
+        results["eds-pseudo-ml"] = evaluate(engine, docs)
+        print_report(results["eds-pseudo-ml"], engine.name)
 
     # ── Side-by-side summary ──────────────────────────────────────────────
-    if unpii_result and eds_result:
-        print(f"\n{'=' * 60}")
-        print(f"  Side-by-side comparison ({len(docs)} docs)")
-        print(f"{'=' * 60}\n")
-
-        header = f"{'Metric':<20} {'unpii':>12} {'eds-pseudo':>12}"
-        print(header)
-        print("-" * len(header))
-
-        u, e = unpii_result.micro, eds_result.micro
-        print(f"{'Precision':<20} {u.precision:>11.2%} {e.precision:>12.2%}")
-        print(f"{'Recall':<20} {u.recall:>11.2%} {e.recall:>12.2%}")
-        print(f"{'F1':<20} {u.f1:>11.2%} {e.f1:>12.2%}")
-
-        ue, ee = unpii_result.micro_exact, eds_result.micro_exact
-        print(f"{'Exact F1':<20} {ue.f1:>11.2%} {ee.f1:>12.2%}")
-
-        print(f"{'Leak rate':<20} {unpii_result.leak_rate:>11.2%} {eds_result.leak_rate:>12.2%}")
-        print(f"{'Throughput':<20} {unpii_result.throughput:>10.0f}/s {eds_result.throughput:>10.0f}/s")
-        print()
-
-        # Per-category side-by-side
-        all_cats = sorted(
-            set(unpii_result.per_category.keys()) | set(eds_result.per_category.keys())
-        )
-        header2 = f"{'Category':<14} {'Count':>6}  {'Prec':>6} {'Rec':>6} {'Leak':>5}  {'Prec':>6} {'Rec':>6} {'Leak':>5}"
-        print(f"{'':20s} {'── unpii ──':>19}  {'── eds-pseudo ──':>19}")
-        print(header2)
-        print("-" * len(header2))
-        u_total, e_total = 0, 0
-        for cat in all_cats:
-            um = unpii_result.per_category.get(cat, MatchResult())
-            em = eds_result.per_category.get(cat, MatchResult())
-            count = um.tp + um.fn
-            u_leaks = sum(1 for l in unpii_result.leaks if l["category"] == cat)
-            e_leaks = sum(1 for l in eds_result.leaks if l["category"] == cat)
-            u_total += u_leaks
-            e_total += e_leaks
-            print(
-                f"{cat:<14} {count:>6}  {um.precision:>5.0%} {um.recall:>6.0%} {u_leaks:>5}"
-                f"  {em.precision:>5.0%} {em.recall:>6.0%} {e_leaks:>5}"
-            )
-        u_micro, e_micro = unpii_result.micro, eds_result.micro
-        print("-" * len(header2))
-        print(
-            f"{'TOTAL':<14} {unpii_result.total_pii:>6}  {u_micro.precision:>5.0%} {u_micro.recall:>6.0%} {u_total:>5}"
-            f"  {e_micro.precision:>5.0%} {e_micro.recall:>6.0%} {e_total:>5}"
-        )
-        print()
+    if len(results) >= 2:
+        print_side_by_side(results, len(docs))
 
     # ── Parallel throughput benchmark ─────────────────────────────────────
-    run_throughput_benchmark(
-        docs, args.mode, args.engine,
-        unpii_result.throughput if unpii_result else 0,
-        eds_result.throughput if eds_result else 0,
-    )
+    run_throughput_benchmark(docs, args.mode, engines_to_run, results)
 
 
 def run_throughput_benchmark(
     docs: list[dict],
     mode: str,
-    engine_filter: str,
-    unpii_st: float,
-    eds_st: float,
+    engines: list[str],
+    results: dict[str, EvalResult],
 ) -> None:
     import os
 
@@ -296,17 +330,16 @@ def run_throughput_benchmark(
     print(f"  Throughput benchmark (parallel, {num_cores} cores)")
     print(f"{'=' * 60}\n")
 
-    unpii_par = 0.0
-    eds_par = 0.0
+    parallel: dict[str, float] = {}
 
-    if engine_filter in ("all", "unpii"):
+    if "unpii" in engines:
         import unpii
         t0 = time.perf_counter()
         unpii.anonymize_batch(texts, mode=mode)
-        unpii_elapsed = time.perf_counter() - t0
-        unpii_par = num_docs / unpii_elapsed if unpii_elapsed > 0 else 0
+        elapsed = time.perf_counter() - t0
+        parallel["unpii"] = num_docs / elapsed if elapsed > 0 else 0
 
-    if engine_filter in ("all", "eds-pseudo"):
+    if "eds-pseudo" in engines:
         import edsnlp
         nlp = edsnlp.blank("eds")
         nlp.add_pipe("eds.normalizer")
@@ -323,25 +356,39 @@ def run_throughput_benchmark(
         stream = stream.set_processing(num_cpu_workers=num_cores, batch_size=64)
         for _ in stream:
             pass
-        eds_elapsed = time.perf_counter() - t0
-        eds_par = num_docs / eds_elapsed if eds_elapsed > 0 else 0
+        elapsed = time.perf_counter() - t0
+        parallel["eds-pseudo"] = num_docs / elapsed if elapsed > 0 else 0
 
-    if engine_filter == "all":
-        header = f"{'':20s} {'unpii':>12} {'eds-pseudo':>12}"
-        print(header)
-        print("-" * len(header))
-        print(f"{'Single-thread':<20} {unpii_st:>10.0f}/s {eds_st:>10.0f}/s")
-        print(f"{'Parallel':<20} {unpii_par:>10.0f}/s {eds_par:>10.0f}/s")
-        unpii_speedup = unpii_par / unpii_st if unpii_st > 0 else 0
-        eds_speedup = eds_par / eds_st if eds_st > 0 else 0
-        print(f"{'Speedup':<20} {unpii_speedup:>10.1f}x {eds_speedup:>10.1f}x")
-    else:
-        par = unpii_par if engine_filter == "unpii" else eds_par
-        st = unpii_st if engine_filter == "unpii" else eds_st
-        speedup = par / st if st > 0 else 0
-        print(f"Single-thread: {st:,.0f}/s")
-        print(f"Parallel:      {par:,.0f}/s")
-        print(f"Speedup:       {speedup:.1f}x")
+    if "eds-pseudo-ml" in engines:
+        import edsnlp
+        nlp = edsnlp.load("AP-HP/eds-pseudo-public", auto_update=True)
+
+        t0 = time.perf_counter()
+        stream = nlp.pipe(texts)
+        stream = stream.set_processing(num_cpu_workers=num_cores, batch_size=64)
+        for _ in stream:
+            pass
+        elapsed = time.perf_counter() - t0
+        parallel["eds-pseudo-ml"] = num_docs / elapsed if elapsed > 0 else 0
+
+    col_w = 14
+    names = [n for n in engines if n in parallel]
+    header = f"{'':20s}" + "".join(f"{n:>{col_w}}" for n in names)
+    print(header)
+    print("-" * len(header))
+
+    print(f"{'Single-thread':<20}" + "".join(
+        f"{results[n].throughput:>{col_w - 2}.0f}/s" if n in results else f"{'—':>{col_w}}"
+        for n in names
+    ))
+    print(f"{'Parallel':<20}" + "".join(
+        f"{parallel[n]:>{col_w - 2}.0f}/s" for n in names
+    ))
+    print(f"{'Speedup':<20}" + "".join(
+        f"{parallel[n] / results[n].throughput:>{col_w - 2}.1f}x"
+        if n in results and results[n].throughput > 0 else f"{'—':>{col_w}}"
+        for n in names
+    ))
     print()
 
 
